@@ -14,7 +14,7 @@ namespace MatchingServer {
         private readonly Hashtable CUSTOM_PROPERTIES = new Hashtable();
 
         //開いているかどうか
-        public bool isOpen_ = true;
+        public bool isOpened_ = true;
         //最大何人まで入室できるのか
         private readonly int MAX_PLAYER_COUNT;
 
@@ -85,6 +85,13 @@ namespace MatchingServer {
             PLAYERS.Remove(player);
             return player;
         }
+
+        /// <summary>
+        /// 指定された値で開室状況を切り替え、開室しているかを返す
+        /// </summary>
+        /// <param name="changingValue"></param>
+        /// <returns></returns>
+        public bool changeOpen(bool changingValue) { return isOpened_ = changingValue; }
 
         public Player getHostPlayer() {
             //先頭のプレイヤー(最初に入室したプレイヤー)を常にホストとする
