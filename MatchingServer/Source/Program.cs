@@ -13,6 +13,10 @@ namespace MatchingServer {
             await Run();
         }
 
+        /// <summary>
+        /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
+        /// </summary>
+        /// <returns></returns>
         private static async Task Run() {
             //Httpリスナーを立ち上げ、クライアントからの接続を待つ
             var httpListener = new HttpListener();
