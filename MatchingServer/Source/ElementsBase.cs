@@ -41,7 +41,7 @@ namespace MatchingServer {
         /// </summary>
         /// <param name="str"></param>
         /// <returns></returns>
-        public static bool isCorrect(string str) {
+        protected static bool isCorrect(string str) {
             //null、空文字、スペースのみでなければ有効とみなす
             return string.IsNullOrEmpty(str) == false && string.IsNullOrWhiteSpace(str) == false;
         }
