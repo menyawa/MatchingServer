@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace MatchingServer.Source {
+namespace MatchingServer {
     /// <summary>
     /// マッチングサーバのクラス
     /// サーバは2つ以上立てないので静的クラスとして作成
@@ -17,7 +17,7 @@ namespace MatchingServer.Source {
         /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
         /// </summary>
         /// <returns></returns>
-        private static async Task Run() {
+        public static async Task Run() {
             //Httpリスナーを立ち上げ、クライアントからの接続を待つ
             var httpListener = new HttpListener();
             httpListener.Prefixes.Add("http://localhost:8000/ws/");
