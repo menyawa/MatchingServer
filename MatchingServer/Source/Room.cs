@@ -21,32 +21,35 @@ namespace MatchingServer {
         /// <summary>
         /// ルームのみを作成する場合のコンストラクタ
         /// </summary>
-        public Room(int maxPlayerCount) : this(new string[] { }, maxPlayerCount) { }
+        public Room(int maxPlayerCount) : this(new KeyValuePair<string, string>[] { }, maxPlayerCount) { }
 
         /// <summary>
         /// 作成と同時に1人入室する際のコンストラクタ
         /// </summary>
-        /// <param name="id"></param>
-        public Room(string id, int maxPlayerCount) : this(new string[] { id }, maxPlayerCount) { }
+        /// <param name="idAndNickName"></param>
+        public Room(KeyValuePair<string, string> idAndNickName, int maxPlayerCount, int cpuCount = 0) : this(new KeyValuePair<string, string>[] { idAndNickName }, maxPlayerCount, cpuCount) { }
 
         /// <summary>
         /// 作成と同時に何人か入室する際のコンストラクタ
         /// </summary>
-        /// <param name="ids"></param>
-        public Room(string[] ids, int maxPlayerCount) {
-            foreach (var id in ids) join(id);
+        /// <param name="idAndNickNames"></param>
+        public Room(KeyValuePair<string, string>[] idAndNickNames, int maxPlayerCount, int cpuCount = 0) {
             MAX_PLAYER_COUNT = maxPlayerCount;
+            foreach (var idAndNickName in idAndNickNames) join(idAndNickName.Key, idAndNickName.Value);
+            //CPUのカウントは1から始まることに注意
+            for (int number = 1; number <= cpuCount; number++) join(Player.createCPU(number));
         }
 
         /// <summary>
         /// 指定したIDのプレイヤーを入室させ、そのプレイヤーのインスタンスを返す
         /// </summary>
         /// <param name="id"></param>
-        public Player join(string id) {
+        /// <param name="nickName"></param>
+        public Player join(string id, string nickName) {
             //無効なidなら何もせず返す
             if (Player.isCorrect(id) == false) return null;
 
-            return join(new Player(id));
+            return join(Player.createClient(id, nickName));
         }
 
         /// <summary>
