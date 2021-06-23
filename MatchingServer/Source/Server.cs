@@ -13,6 +13,8 @@ namespace MatchingServer {
     /// サーバは2つ以上立てないので静的クラスとして作成
     /// </summary>
     static class Server {
+        private static readonly Encoding ENCODING = Encoding.UTF8;
+
         /// <summary>
         /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
         /// </summary>
@@ -35,58 +37,71 @@ namespace MatchingServer {
             var httpListenerWebSocketContext = await httpListenerContext.AcceptWebSocketAsync(null);
             var webSocket = httpListenerWebSocketContext.WebSocket;
 
-            //１０回のレスポンスを返却
-            for (int index = 0; index < 10; index++) {
-                //1回のレスポンスごとに2秒のウエイトを設定
-                await Task.Delay(2000);
-
-                //レスポンスのテストメッセージとして、現在時刻の文字列を取得
-                var time = DateTime.Now.ToLongTimeString();
-
-                //文字列をByte型に変換
-                var buffer = Encoding.UTF8.GetBytes(time);
-                var segment = new ArraySegment<byte>(buffer);
-
-                //クライアント側に文字列を送信
-                await webSocket.SendAsync(segment, WebSocketMessageType.Text,
-                  true, CancellationToken.None);
-            }
+            await Task.Delay(10000);
+            var str = await getReceiveMessageAsync(webSocket);
+            Console.WriteLine(str);
 
             //接続を閉じる
             await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure,
               "Done", CancellationToken.None);
         }
 
-        private static async Task basicRun() {
-            var tcpListener = new TcpListener(IPAddress.Loopback, 12345);
-            tcpListener.Start();
+        /// <summary>
+        /// 指定されたWebsocketで、メッセージ(文字列)を送信する
+        /// </summary>
+        /// <param name="webSocket"></param>
+        /// <param name="message"></param>
+        /// <returns></returns>
+        private static void sendMessage(WebSocket webSocket, string message) {
+            //文字列をバイト列に変換して送る
+            var buffer = ENCODING.GetBytes(message);
+            var segment = new ArraySegment<byte>(buffer);
+            webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+        }
 
-            while (true) {
-                using (var tcpClient = await tcpListener.AcceptTcpClientAsync())
-                using (var stream = tcpClient.GetStream())
-                using (var reader = new StreamReader(stream))
-                using (var writer = new StreamWriter(stream)) {
-                    //接続元を出力
-                    Console.WriteLine(tcpClient.Client.RemoteEndPoint);
+        /// <summary>
+        /// 送られてきたメッセージをstringとして非同期で取得する
+        /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
+        /// </summary>
+        /// <param name="webSocket"></param>
+        /// <returns></returns>
+        private static async Task<string> getReceiveMessageAsync(WebSocket webSocket) {
+            var buffer = new byte[1024];
+            //所得情報確保用の配列を準備
+            var segment = new ArraySegment<byte>(buffer);
+            //サーバからのレスポンス情報を取得
+            var result = await webSocket.ReceiveAsync(segment, CancellationToken.None);
 
-                    // ヘッダー部分を全部読んで捨てる
-                    string line = await reader.ReadLineAsync();
-                    while (string.IsNullOrWhiteSpace(line) == false) {
-                        line = await reader.ReadLineAsync();
-                        // 読んだ行を出力しておく
-                        Console.WriteLine(line);
-                    }
-
-                    // レスポンスを返す
-                    // ステータスライン
-                    await writer.WriteLineAsync("HTTP/1.1 200 OK");
-                    // ヘッダー部分
-                    await writer.WriteLineAsync("Content-Type: text/plain; charset=UTF-8");
-                    await writer.WriteLineAsync(); // 終わり
-                                                   // これ以降ボディ
-                    await writer.WriteLineAsync($"Hello Server!  ");
-                }
+            //エンドポイントCloseの場合、処理を中断
+            if (result.MessageType == WebSocketMessageType.Close) {
+                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Already Close",
+                  CancellationToken.None);
+                return null;
             }
+            //バイナリの場合は扱えないため、処理を中断
+            if (result.MessageType == WebSocketMessageType.Binary) {
+                await webSocket.CloseAsync(WebSocketCloseStatus.InvalidMessageType,
+                  "I don't do binary", CancellationToken.None);
+                return null;
+            }
+
+            //メッセージの最後まで取得
+            int count = result.Count;
+            while (result.EndOfMessage == false) {
+                //バッファの長さをメッセージの長さが超えるようなら中断
+                if (count >= buffer.Length) {
+                    await webSocket.CloseAsync(WebSocketCloseStatus.InvalidPayloadData,
+                      "That's too long", CancellationToken.None);
+                    return null;
+                }
+
+                segment = new ArraySegment<byte>(buffer, count, buffer.Length - count);
+                result = await webSocket.ReceiveAsync(segment, CancellationToken.None);
+
+                count += result.Count;
+            }
+
+            return ENCODING.GetString(buffer, 0, count);
         }
     }
 }
