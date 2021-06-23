@@ -4,7 +4,7 @@ namespace MatchingServer {
     /// <summary>
     /// オンラインプレイにおける、プレイヤー1人あたりのクラス
     /// </summary>
-    class Player {
+    sealed class Player : ElementsBase {
         //プレイヤーID
         public readonly string ID;
         //ニックネーム
@@ -41,16 +41,6 @@ namespace MatchingServer {
         /// <returns></returns>
         public static Player createCPU(int number) {
             return new Player(DateTime.Now.ToString(), $"CPU{number}", Type.CPU);
-        }
-
-        /// <summary>
-        /// 有効な(真正な)idかどうか
-        /// </summary>
-        /// <param name="id"></param>
-        /// <returns></returns>
-        public static bool isCorrect(string id) {
-            //null、空文字、スペースのみでなければ有効とみなす
-            return string.IsNullOrEmpty(id) == false && string.IsNullOrWhiteSpace(id) == false;
         }
     }
 }
