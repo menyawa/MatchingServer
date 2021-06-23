@@ -1,7 +1,7 @@
 ﻿using System;
-using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
-using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
@@ -14,6 +14,7 @@ namespace MatchingServer {
     /// </summary>
     static class Server {
         private static readonly Encoding ENCODING = Encoding.UTF8;
+        private static readonly List<Lobby> LOBBYS;
 
         /// <summary>
         /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
@@ -102,6 +103,14 @@ namespace MatchingServer {
             }
 
             return ENCODING.GetString(buffer, 0, count);
+        }
+
+        /// <summary>
+        /// デフォルトのロビーを返す
+        /// </summary>
+        /// <returns></returns>
+        public static Lobby getDefaultLobby() {
+            return LOBBYS.First();
         }
     }
 }
