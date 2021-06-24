@@ -10,7 +10,7 @@ namespace MatchingServer {
         private readonly List<Player> PLAYERS = new List<Player>();
 
         //開いているかどうか
-        public bool isOpened_ = true;
+        private bool isOpened_ = true;
         //最大何人まで入室できるのか
         private readonly int MAX_PLAYER_COUNT;
 
@@ -43,7 +43,7 @@ namespace MatchingServer {
         /// <param name="nickName"></param>
         public Player join(string id, string nickName) {
             //無効なidなら何もせず返す
-            if (Player.isCorrect(id) == false) return null;
+            if (isCorrect(id) == false) return null;
 
             return join(Player.createClient(id, nickName));
         }
@@ -59,6 +59,8 @@ namespace MatchingServer {
             if (PLAYERS.Count() == MAX_PLAYER_COUNT) return null;
 
             PLAYERS.Add(player);
+            //満員になり次第ルームを閉じる
+            if (PLAYERS.Count() == MAX_PLAYER_COUNT) isOpened_ = false;
             return player;
         }
 
@@ -67,7 +69,7 @@ namespace MatchingServer {
         /// </summary>
         public Player leave(string id) {
             //無効なidなら何もせず返す
-            if (Player.isCorrect(id) == false) return null;
+            if (isCorrect(id) == false) return null;
 
             return leave(PLAYERS.Find(value => value.ID == id));
         }
@@ -106,5 +108,11 @@ namespace MatchingServer {
         /// <param name="changingValue"></param>
         /// <returns></returns>
         public bool changeOpen(bool changingValue) { return isOpened_ = changingValue; }
+
+        /// <summary>
+        /// まだこの部屋に入れるかどうか
+        /// </summary>
+        /// <returns></returns>
+        public bool canJoin() { return isOpened_ && PLAYERS.Count() < MAX_PLAYER_COUNT; }
     }
 }
