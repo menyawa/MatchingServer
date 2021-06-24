@@ -12,20 +12,23 @@ namespace MatchingServer {
         public Lobby() { }
 
         /// <summary>
-        /// プレイヤーをロビーのいずれかのルームに加入させ、入れたかどうかを返す
+        /// プレイヤーをロビーのいずれかのルームに加入させ、入ったルームのインデックスを返す
         /// </summary>
         /// <returns></returns>
-        public void joinPlayer(string id, string nickName, int maxPlayerCount) {
+        public int joinPlayer(string id, string nickName, int maxPlayerCount) {
             //希望した対戦人数で空いているルームを見つけ次第入れる
-            foreach (var room in ROOMS) {
-                if (room.canJoin() && room.MAX_PLAYER_COUNT == maxPlayerCount) {
+            for (int index = 0; index < ROOMS.Count(); index++) {
+                var room = ROOMS[index];
+                if(room.canJoin() && room.MAX_PLAYER_COUNT == maxPlayerCount) {
                     room.join(id, nickName);
-                    return;
+                    return index;
                 }
             }
 
             //どこも空いていなかったら新たにルームを作成して入り、待機する
             ROOMS.Add(new Room(new KeyValuePair<string, string>(id, nickName), maxPlayerCount));
+            //返すのはインデックスなので-1することに注意
+            return ROOMS.Count() - 1;
         }
     }
 }
