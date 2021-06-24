@@ -30,5 +30,14 @@ namespace MatchingServer {
             //返すのはインデックスなので-1することに注意
             return ROOMS.Count() - 1;
         }
+
+        /// <summary>
+        /// 指定したルームの指定プレイヤーを退出させ、プレイヤーのインスタンスを返す
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="roomIndex"></param>
+        public Player leavePlayer(string id, int roomIndex) {
+            return ROOMS[roomIndex].leave(id);
+        }
     }
 }

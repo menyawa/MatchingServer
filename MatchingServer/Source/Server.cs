@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -38,13 +39,30 @@ namespace MatchingServer {
             var httpListenerWebSocketContext = await httpListenerContext.AcceptWebSocketAsync(null);
             var webSocket = httpListenerWebSocketContext.WebSocket;
 
-            await Task.Delay(10000);
-            var str = await getReceiveMessageAsync(webSocket);
-            Console.WriteLine(str);
+            //現在プレイヤーがいるルームのID
+            int currentRoomIndex = -1;
+            while (true) {
+                //意図的に0.5秒間隔で行う
+                await Task.Delay(500);
 
-            //接続を閉じる
-            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure,
+                var messageData = JsonSerializer.Deserialize<MessageData>(await getReceiveMessageAsync(webSocket));
+                switch (messageData.type_) {
+                    case MessageData.Type.Join:
+                        currentRoomIndex = getDefaultLobby().joinPlayer(messageData.PLAYER_ID, messageData.PLAYER_NICK_NAME, messageData.MAX_PLAYER_COUNT);
+                        break;
+
+                    case MessageData.Type.Leave:
+                        //ルームに入る→退室するという順番でないと、当然ながらエラーが出るので注意
+                        getDefaultLobby().leavePlayer(messageData.PLAYER_ID, currentRoomIndex);
+                        break;
+
+                    case MessageData.Type.Disconnect:
+                        //切断要請があり次第切断する
+                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure,
               "Done", CancellationToken.None);
+                        break;
+                }
+            }
         }
 
         /// <summary>
