@@ -41,6 +41,8 @@ namespace MatchingServer {
 
             //現在プレイヤーがいるルームのID
             int currentRoomIndex = -1;
+            //応答が無い時間
+            double noResponseTime = 0;
             while (true) {
                 //意図的に0.5秒間隔で行う
                 await Task.Delay(500);
@@ -56,12 +58,16 @@ namespace MatchingServer {
                         getDefaultLobby().leavePlayer(messageData.PLAYER_ID, currentRoomIndex);
                         break;
 
+                    case MessageData.Type.PeriodicReport:
+                        break;
                     case MessageData.Type.Disconnect:
                         //切断要請があり次第切断する
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure,
-              "Done", CancellationToken.None);
+                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
                         break;
                 }
+
+                //毎フレーム必ず更新を行う
+                DeltaTimer.update();
             }
         }
 

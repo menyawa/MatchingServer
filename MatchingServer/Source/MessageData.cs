@@ -9,10 +9,11 @@
         //希望するプレイ人数
         public readonly int MAX_PLAYER_COUNT;
 
-        //新しくルームに入りたいのか(対戦を行いたいのか)、今いるルームから退出したい(接続は切らない)のか、切断するのか
+        //新しくルームに入りたいのか(対戦を行いたいのか)、今いるルームから退出したい(接続は切らない)のか、定時連絡なのか、切断するのか
         public enum Type {
             Join, 
-            Leave, 
+            Leave,
+            PeriodicReport, 
             Disconnect
         }
         public Type type_;
