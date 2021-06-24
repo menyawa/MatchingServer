@@ -12,7 +12,7 @@ namespace MatchingServer {
         //開いているかどうか
         private bool isOpened_ = true;
         //最大何人まで入室できるのか
-        private readonly int MAX_PLAYER_COUNT;
+        public readonly int MAX_PLAYER_COUNT;
 
         /// <summary>
         /// ルームのみを作成する場合のコンストラクタ

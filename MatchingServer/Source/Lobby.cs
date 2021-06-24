@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace MatchingServer {
     /// <summary>
@@ -14,15 +15,17 @@ namespace MatchingServer {
         /// プレイヤーをロビーのいずれかのルームに加入させ、入れたかどうかを返す
         /// </summary>
         /// <returns></returns>
-        public bool joinPlayer(string id, string nickName) {
+        public void joinPlayer(string id, string nickName, int maxPlayerCount) {
+            //希望した対戦人数で空いているルームを見つけ次第入れる
             foreach (var room in ROOMS) {
-                if (room.canJoin()) {
+                if (room.canJoin() && room.MAX_PLAYER_COUNT == maxPlayerCount) {
                     room.join(id, nickName);
-                    return true;
+                    return;
                 }
             }
 
-            return false;
+            //どこも空いていなかったら新たにルームを作成して入り、待機する
+            ROOMS.Add(new Room(new KeyValuePair<string, string>(id, nickName), maxPlayerCount));
         }
     }
 }
