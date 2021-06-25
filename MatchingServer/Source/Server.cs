@@ -41,22 +41,39 @@ namespace MatchingServer {
 
             //現在プレイヤーがいるルームのID
             int currentRoomIndex = -1;
-            //応答が無い時間
+            //応答なしの累計時間
             double noResponseTime = 0;
             var deltaTimer = new DeltaTimer();
+            //受信中の応答無しの時間を測定する関係上、awaitは使わない
+            var clientMessageTask = getReceiveMessageAsync(webSocket);
             while (true) {
                 //意図的に0.5秒間隔で行う
                 await Task.Delay(500);
 
-                var messageData = JsonSerializer.Deserialize<MessageData>(await getReceiveMessageAsync(webSocket));
-                switch (messageData.type_) {
+                //メッセージの受信完了したら新たなメッセージの受信待ちを開始し、応答無しの累計時間をリセットする
+                if (clientMessageTask.IsCompletedSuccessfully) {
+                    clientMessageTask = getReceiveMessageAsync(webSocket);
+                    noResponseTime = 0;
+                } else {
+                    //完了していないなら応答なしの時間を加算し、タイムアウト次第切断する
+                    //まだタイムアウトしないなら次のループへ
+                    noResponseTime += deltaTimer.get();
+                    if (isTimeOut(noResponseTime)) {
+                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Time Out", CancellationToken.None);
+                        break;
+                    } else continue;
+                }
+
+                //クライアントからのメッセージに応じた処理を行う
+                var clientMessageData = JsonSerializer.Deserialize<MessageData>(await clientMessageTask);
+                switch (clientMessageData.type_) {
                     case MessageData.Type.Join:
-                        currentRoomIndex = getDefaultLobby().joinPlayer(messageData.PLAYER_ID, messageData.PLAYER_NICK_NAME, messageData.MAX_PLAYER_COUNT);
+                        currentRoomIndex = getDefaultLobby().joinPlayer(clientMessageData.PLAYER_ID, clientMessageData.PLAYER_NICK_NAME, clientMessageData.MAX_PLAYER_COUNT);
                         break;
 
                     case MessageData.Type.Leave:
                         //ルームに入る→退室するという順番でないと、当然ながらエラーが出るので注意
-                        getDefaultLobby().leavePlayer(messageData.PLAYER_ID, currentRoomIndex);
+                        getDefaultLobby().leavePlayer(clientMessageData.PLAYER_ID, currentRoomIndex);
                         break;
 
                     case MessageData.Type.PeriodicReport:
@@ -128,6 +145,15 @@ namespace MatchingServer {
             }
 
             return ENCODING.GetString(buffer, 0, count);
+        }
+
+        /// <summary>
+        /// クライアントからの応答がタイムアウトしたかどうか
+        /// </summary>
+        /// <param name="noResponceTime"></param>
+        /// <returns></returns>
+        private static bool isTimeOut(double noResponceTime) {
+            return noResponceTime >= 10;
         }
 
         /// <summary>
