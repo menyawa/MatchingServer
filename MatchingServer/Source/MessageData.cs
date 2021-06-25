@@ -1,4 +1,6 @@
-﻿namespace MatchingServer {
+﻿using System.Text;
+
+namespace MatchingServer {
     /// <summary>
     /// サーバ・クライアント間で送受信するメッセージのデータ
     /// </summary>
@@ -23,6 +25,21 @@
             PLAYER_NICK_NAME = nickName;
             MAX_PLAYER_COUNT = maxPlayerCount;
             type_ = type;
+        }
+
+        /// <summary>
+        /// メッセージ内容を表示
+        /// デバッグ用
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString() {
+            //大丈夫だとは思うが、一応パフォーマンスを考えてStringBuilderを使用
+            var stringBuilder = new StringBuilder($"プレイヤーID: {PLAYER_ID}\n");
+            stringBuilder.Append($"ニックネーム： {PLAYER_NICK_NAME}\n");
+            stringBuilder.Append($"希望プレイ人数： {MAX_PLAYER_COUNT}\n");
+            stringBuilder.Append($"指示タイプ： {type_}\n");
+
+            return stringBuilder.ToString();
         }
     }
 }
