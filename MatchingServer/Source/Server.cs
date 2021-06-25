@@ -15,7 +15,7 @@ namespace MatchingServer {
     /// </summary>
     static class Server {
         private static readonly Encoding ENCODING = Encoding.UTF8;
-        private static readonly List<Lobby> LOBBYS;
+        private static readonly List<Lobby> LOBBYS = new List<Lobby> { new Lobby() };
 
         /// <summary>
         /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
@@ -55,7 +55,7 @@ namespace MatchingServer {
                 await Task.Delay(1000);
 
                 //メッセージの受信完了したら新たなメッセージの受信待ちを開始し、応答無しの累計時間をリセットする
-                MessageData clientMessageData = MessageData.getBlankData();
+                var clientMessageData = MessageData.getBlankData();
                 if (clientMessageTask.IsCompletedSuccessfully) {
                     //ここで受信データを入れておかないと、この後では既に新しい待受けのタスクに変わってしまっているため、正常にメッセージを受信できないことに注意
                     clientMessageData = JsonSerializer.Deserialize<MessageData>(await clientMessageTask);
@@ -76,8 +76,8 @@ namespace MatchingServer {
                 //クライアントからのメッセージに応じた処理を行う
                 switch (clientMessageData.type_) {
                     case MessageData.Type.Join:
-                        currentRoomIndex = getDefaultLobby().joinPlayer(clientMessageData.PLAYER_ID, clientMessageData.PLAYER_NICK_NAME, clientMessageData.MAX_PLAYER_COUNT);
                         Console.WriteLine(clientMessageData.ToString());
+                        currentRoomIndex = getDefaultLobby().joinPlayer(clientMessageData.PLAYER_ID, clientMessageData.PLAYER_NICK_NAME, clientMessageData.MAX_PLAYER_COUNT);
                         break;
 
                     case MessageData.Type.Leave:
