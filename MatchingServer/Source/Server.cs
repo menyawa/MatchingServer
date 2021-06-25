@@ -39,16 +39,20 @@ namespace MatchingServer {
             var httpListenerWebSocketContext = await httpListenerContext.AcceptWebSocketAsync(null);
             var webSocket = httpListenerWebSocketContext.WebSocket;
 
-            //現在プレイヤーがいるルームのID
-            int currentRoomIndex = -1;
             //応答なしの累計時間
             double noResponseTime = 0;
             var deltaTimer = new DeltaTimer();
+            //現在プレイヤーがいるルームのID
+            int currentRoomIndex = -1;
             //受信中の応答無しの時間を測定する関係上、awaitは使わない
             var clientMessageTask = getReceiveMessageAsync(webSocket);
             while (true) {
-                //意図的に0.5秒間隔で行う
-                await Task.Delay(500);
+                //毎フレーム必ず更新を行う
+                //最後でなく最初に更新を行わないと、途中でcontinueを行った場合更新が行われないので注意
+                deltaTimer.update();
+
+                //あまり頻繁に送受信してもあまり意味がないので、意図的に1秒間隔で通信を行う
+                await Task.Delay(1000);
 
                 //メッセージの受信完了したら新たなメッセージの受信待ちを開始し、応答無しの累計時間をリセットする
                 if (clientMessageTask.IsCompletedSuccessfully) {
@@ -58,7 +62,9 @@ namespace MatchingServer {
                     //完了していないなら応答なしの時間を加算し、タイムアウト次第切断する
                     //まだタイムアウトしないなら次のループへ
                     noResponseTime += deltaTimer.get();
+                    Console.WriteLine($"No Responce Time: {noResponseTime}");
                     if (isTimeOut(noResponseTime)) {
+                        Console.WriteLine("Time Out");
                         await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Time Out", CancellationToken.None);
                         break;
                     } else continue;
@@ -83,9 +89,6 @@ namespace MatchingServer {
                         await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
                         break;
                 }
-
-                //毎フレーム必ず更新を行う
-                deltaTimer.update();
             }
         }
 
@@ -153,7 +156,7 @@ namespace MatchingServer {
         /// <param name="noResponceTime"></param>
         /// <returns></returns>
         private static bool isTimeOut(double noResponceTime) {
-            return noResponceTime >= 10;
+            return noResponceTime >= 10.0;
         }
 
         /// <summary>

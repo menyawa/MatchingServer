@@ -10,12 +10,13 @@ namespace MatchingServer {
         private DateTime prevFrameTime_ = DateTime.Now;
 
         /// <summary>
-        /// 前フレームからの経過時間を取得する
+        /// 前フレームからの経過秒を取得する
         /// </summary>
         /// <returns></returns>
         public double get() {
             var interval = DateTime.Now - prevFrameTime_;
-            return interval.TotalMilliseconds;
+            //算出されるのはミリ秒なので、10^-3をかけて秒にする
+            return interval.TotalMilliseconds * Math.Pow(10, -3);
         }
 
         /// <summary>
