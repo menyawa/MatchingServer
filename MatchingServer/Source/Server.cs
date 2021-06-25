@@ -43,6 +43,7 @@ namespace MatchingServer {
             int currentRoomIndex = -1;
             //応答が無い時間
             double noResponseTime = 0;
+            var deltaTimer = new DeltaTimer();
             while (true) {
                 //意図的に0.5秒間隔で行う
                 await Task.Delay(500);
@@ -67,7 +68,7 @@ namespace MatchingServer {
                 }
 
                 //毎フレーム必ず更新を行う
-                DeltaTimer.update();
+                deltaTimer.update();
             }
         }
 

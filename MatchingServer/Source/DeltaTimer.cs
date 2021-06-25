@@ -3,17 +3,17 @@
 namespace MatchingServer {
     /// <summary>
     /// フレーム間の経過時間を司るタイマーのクラス
-    /// 複数インスタンスを作る意味がないので、静的クラスとして作成
+    /// 各接続に対し1つインスタンスを作成しなければならない(各接続ごとにメインループはあり、フレーム間の経過時間も違うため)ので、staticクラスにはできないことに注意
     /// </summary>
-    static class DeltaTimer {
+    class DeltaTimer {
         //前回のフレームの日時
-        private static DateTime prevFrameTime_ = DateTime.Now;
+        private DateTime prevFrameTime_ = DateTime.Now;
 
         /// <summary>
         /// 前フレームからの経過時間を取得する
         /// </summary>
         /// <returns></returns>
-        public static double get() {
+        public double get() {
             var interval = DateTime.Now - prevFrameTime_;
             return interval.TotalMilliseconds;
         }
@@ -22,7 +22,7 @@ namespace MatchingServer {
         /// 正常に取得できるよう更新する
         /// この更新を毎フレーム行わないと、正常な経過時間が測れないので注意
         /// </summary>
-        public static void update() {
+        public void update() {
             prevFrameTime_ = DateTime.Now;
         }
     }
