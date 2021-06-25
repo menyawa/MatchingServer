@@ -28,6 +28,14 @@ namespace MatchingServer {
         }
 
         /// <summary>
+        /// 仮置の空データかどうか
+        /// </summary>
+        /// <returns></returns>
+        public bool isBlank() {
+            return this == getBlankData();
+        }
+
+        /// <summary>
         /// メッセージ内容を表示
         /// デバッグ用
         /// </summary>
@@ -40,6 +48,29 @@ namespace MatchingServer {
             stringBuilder.Append($"指示タイプ： {type_}\n");
 
             return stringBuilder.ToString();
+        }
+
+        public override bool Equals(object obj) {
+            //引数のインスタンスの型がMessageDataかつ、全てのフィールドが同一なら等しいとみなす
+            if (obj is MessageData otherMessageData) {
+                return this.PLAYER_ID == otherMessageData.PLAYER_ID && this.PLAYER_NICK_NAME == otherMessageData.PLAYER_NICK_NAME && this.MAX_PLAYER_COUNT == otherMessageData.MAX_PLAYER_COUNT && this.type_ == otherMessageData.type_;
+            } else return false;
+        }
+
+        public static bool operator ==(MessageData myMessageData, MessageData otherMessageData) {
+            return myMessageData.Equals(otherMessageData);
+        }
+
+        public static bool operator !=(MessageData myMessageData, MessageData otherMessageData) {
+            return myMessageData.Equals(otherMessageData) == false;
+        }
+
+        /// <summary>
+        /// 仮のメッセージのデータを取得する
+        /// 値型なので仮置としてデータが必要
+        /// </summary>
+        public static MessageData getBlankData() {
+            return new MessageData("Blank", "Blank", -1, Type.PeriodicReport);
         }
     }
 }
