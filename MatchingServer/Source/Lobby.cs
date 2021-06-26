@@ -22,7 +22,7 @@ namespace MatchingServer {
                 var room = ROOMS[index];
                 if(room.canJoin() && room.MAX_PLAYER_COUNT == maxPlayerCount) {
                     var player = room.join(id, nickName, webSocket);
-                    //ルームに自身が入ったことを他プレイヤーに伝える
+                    //ルームに自身が入ったことを他プレイヤーに通知する
                     //こうすることでルームに自身が入った場合・他プレイヤーがルームに入った場合共に対応可能
                     player.sendMyDataToOthers(room.getOtherPlayers(player), maxPlayerCount, MessageData.Type.Join);
                     return index;
@@ -41,7 +41,11 @@ namespace MatchingServer {
         /// <param name="id"></param>
         /// <param name="roomIndex"></param>
         public Player leavePlayer(string id, int roomIndex) {
-            return ROOMS[roomIndex].leave(id);
+            var room = ROOMS[roomIndex];
+            var player = room.getPlayer(id);
+            //入室の際と同様に、退出の際にも他プレイヤーに通知する
+            player.sendMyDataToOthers(room.getOtherPlayers(player), room.MAX_PLAYER_COUNT, MessageData.Type.Leave);
+            return room.leave(player);
         }
     }
 }
