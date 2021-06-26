@@ -69,10 +69,7 @@ namespace MatchingServer {
         /// 指定したIDのプレイヤーを退室させ、そのプレイヤーのインスタンスを返す
         /// </summary>
         public Player leave(string id) {
-            //無効なidなら何もせず返す
-            if (isCorrect(id) == false) return null;
-
-            return leave(PLAYERS.Find(value => value.ID == id));
+            return leave(getPlayer(id));
         }
 
         /// <summary>
@@ -107,10 +104,16 @@ namespace MatchingServer {
         }
 
         /// <summary>
-        /// ホストのプレイヤーIDを返す
+        /// 指定されたIDのプレイヤーを返す
         /// </summary>
+        /// <param name="targetID"></param>
         /// <returns></returns>
-        public string getHostPlayerID() { return getHostPlayer().ID; }
+        public Player getPlayer(string targetID) {
+            //有効なIDでないならnullを返す
+            if (isCorrect(targetID) == false) return null;
+
+            return PLAYERS.Find(player => player.ID == targetID);
+        }
 
         /// <summary>
         /// 指定された値で開室状況を切り替え、開室しているかを返す
