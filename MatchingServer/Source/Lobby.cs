@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.WebSockets;
 
 namespace MatchingServer {
     /// <summary>
@@ -15,18 +16,18 @@ namespace MatchingServer {
         /// プレイヤーをロビーのいずれかのルームに加入させ、入ったルームのインデックスを返す
         /// </summary>
         /// <returns></returns>
-        public int joinPlayer(string id, string nickName, int maxPlayerCount) {
+        public int joinPlayer(string id, string nickName, WebSocket webSocket, int maxPlayerCount) {
             //希望した対戦人数で空いているルームを見つけ次第入れる
             for (int index = 0; index < ROOMS.Count(); index++) {
                 var room = ROOMS[index];
                 if(room.canJoin() && room.MAX_PLAYER_COUNT == maxPlayerCount) {
-                    room.join(id, nickName);
+                    room.join(id, nickName, webSocket);
                     return index;
                 }
             }
 
             //どこも空いていなかったら新たにルームを作成して入り、待機する
-            ROOMS.Add(new Room(new KeyValuePair<string, string>(id, nickName), maxPlayerCount));
+            ROOMS.Add(new Room(id, nickName, webSocket, maxPlayerCount));
             //返すのはインデックスなので-1することに注意
             return ROOMS.Count() - 1;
         }

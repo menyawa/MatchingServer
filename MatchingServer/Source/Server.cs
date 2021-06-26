@@ -76,7 +76,7 @@ namespace MatchingServer {
                 //クライアントからのメッセージに応じた処理を行う
                 switch (clientMessageData.type_) {
                     case MessageData.Type.Join:
-                        currentRoomIndex = getDefaultLobby().joinPlayer(clientMessageData.PLAYER_ID, clientMessageData.PLAYER_NICK_NAME, clientMessageData.MAX_PLAYER_COUNT);
+                        currentRoomIndex = getDefaultLobby().joinPlayer(clientMessageData.PLAYER_ID, clientMessageData.PLAYER_NICK_NAME, webSocket, clientMessageData.MAX_PLAYER_COUNT);
                         break;
 
                     case MessageData.Type.Leave:

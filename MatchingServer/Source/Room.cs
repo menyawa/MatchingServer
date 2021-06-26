@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Net.WebSockets;
 
 namespace MatchingServer {
     /// <summary>
@@ -17,21 +18,20 @@ namespace MatchingServer {
         /// <summary>
         /// ルームのみを作成する場合のコンストラクタ
         /// </summary>
-        public Room(int maxPlayerCount) : this(new KeyValuePair<string, string>[] { }, maxPlayerCount) { }
+        public Room(int maxPlayerCount) {
+            MAX_PLAYER_COUNT = maxPlayerCount;
+        }
 
         /// <summary>
         /// 作成と同時に1人入室する際のコンストラクタ
         /// </summary>
-        /// <param name="idAndNickName"></param>
-        public Room(KeyValuePair<string, string> idAndNickName, int maxPlayerCount, int cpuCount = 0) : this(new KeyValuePair<string, string>[] { idAndNickName }, maxPlayerCount, cpuCount) { }
-
-        /// <summary>
-        /// 作成と同時に何人か入室する際のコンストラクタ
-        /// </summary>
-        /// <param name="idAndNickNames"></param>
-        public Room(KeyValuePair<string, string>[] idAndNickNames, int maxPlayerCount, int cpuCount = 0) {
+        /// <param name="id"></param>
+        /// <param name="nickName"></param>
+        /// <param name="maxPlayerCount"></param>
+        /// <param name="cpuCount"></param>
+        public Room(string id, string nickName, WebSocket webSocket, int maxPlayerCount, int cpuCount = 0) {
             MAX_PLAYER_COUNT = maxPlayerCount;
-            foreach (var idAndNickName in idAndNickNames) join(idAndNickName.Key, idAndNickName.Value);
+            join(id, nickName, webSocket);
             //CPUのカウントは1から始まることに注意
             for (int number = 1; number <= cpuCount; number++) join(Player.createCPU(number));
         }
@@ -41,11 +41,11 @@ namespace MatchingServer {
         /// </summary>
         /// <param name="id"></param>
         /// <param name="nickName"></param>
-        public Player join(string id, string nickName) {
+        public Player join(string id, string nickName, WebSocket webSocket) {
             //無効なidなら何もせず返す
             if (isCorrect(id) == false) return null;
 
-            return join(Player.createClient(id, nickName));
+            return join(Player.createClient(id, nickName, webSocket));
         }
 
         /// <summary>
