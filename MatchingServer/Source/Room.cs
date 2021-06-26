@@ -88,6 +88,15 @@ namespace MatchingServer {
         }
 
         /// <summary>
+        /// 指定されたプレイヤー以外のプレイヤーを取得する
+        /// </summary>
+        /// <param name="myPlayer"></param>
+        /// <returns></returns>
+        public Player[] getOtherPlayers(Player myPlayer) {
+            return PLAYERS.Where(player => player != myPlayer).ToArray();
+        }
+
+        /// <summary>
         /// ホストのプレイヤーを返す
         /// </summary>
         /// <returns></returns>
