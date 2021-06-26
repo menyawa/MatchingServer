@@ -46,7 +46,7 @@ namespace MatchingServer {
             int currentRoomIndex = -1;
             //受信中の応答無しの時間を測定する関係上、awaitは使わない
             var clientMessageTask = getReceiveMessageAsync(webSocket);
-            while (true) {
+            while (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.CloseReceived) {
                 //毎フレーム必ず更新を行う
                 //最後でなく最初に更新を行わないと、途中でcontinueを行った場合更新が行われないので注意
                 deltaTimer.update();
@@ -76,7 +76,6 @@ namespace MatchingServer {
                 //クライアントからのメッセージに応じた処理を行う
                 switch (clientMessageData.type_) {
                     case MessageData.Type.Join:
-                        Console.WriteLine(clientMessageData.ToString());
                         currentRoomIndex = getDefaultLobby().joinPlayer(clientMessageData.PLAYER_ID, clientMessageData.PLAYER_NICK_NAME, clientMessageData.MAX_PLAYER_COUNT);
                         break;
 
@@ -110,6 +109,7 @@ namespace MatchingServer {
 
         /// <summary>
         /// 送られてきたメッセージをstringとして非同期で取得する
+        /// 複数送られてきている場合、回ごとに分けて受信されるため、全てのメッセージを見るにはその回数分呼び出さないといけないことに注意
         /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
         /// </summary>
         /// <param name="webSocket"></param>
@@ -151,6 +151,16 @@ namespace MatchingServer {
             }
 
             return ENCODING.GetString(buffer, 0, count);
+        }
+
+        /// <summary>
+        /// 渡されたWebSocketのインスタンスを通して、クライアントにプレイヤーのデータを送信する
+        /// </summary>
+        /// <param name="webSocket"></param>
+        /// <param name="player"></param>
+        public static void sendPlayerDataToClient(WebSocket webSocket, Player player, int maxPlayerCount, MessageData.Type type) {
+            var messageData = new MessageData(player.ID, player.NICK_NAME, maxPlayerCount, type);
+            sendMessage(webSocket, JsonSerializer.Serialize(messageData));
         }
 
         /// <summary>
