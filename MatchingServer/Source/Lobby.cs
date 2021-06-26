@@ -21,7 +21,10 @@ namespace MatchingServer {
             for (int index = 0; index < ROOMS.Count(); index++) {
                 var room = ROOMS[index];
                 if(room.canJoin() && room.MAX_PLAYER_COUNT == maxPlayerCount) {
-                    room.join(id, nickName, webSocket);
+                    var player = room.join(id, nickName, webSocket);
+                    //ルームに自身が入ったことを他プレイヤーに伝える
+                    //こうすることでルームに自身が入った場合・他プレイヤーがルームに入った場合共に対応可能
+                    player.sendMyDataToOthers(room.getOtherPlayers(player), maxPlayerCount, MessageData.Type.Join);
                     return index;
                 }
             }

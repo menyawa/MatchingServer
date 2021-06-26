@@ -31,6 +31,7 @@ namespace MatchingServer {
         /// <param name="cpuCount"></param>
         public Room(string id, string nickName, WebSocket webSocket, int maxPlayerCount, int cpuCount = 0) {
             MAX_PLAYER_COUNT = maxPlayerCount;
+            //作成と同時に1人が入るので、ルームの他のプレイヤーに入ったことを告知する必要はない(そもそもいない)ことに注意
             join(id, nickName, webSocket);
             //CPUのカウントは1から始まることに注意
             for (int number = 1; number <= cpuCount; number++) join(Player.createCPU(number));

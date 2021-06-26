@@ -49,6 +49,14 @@ namespace MatchingServer {
         }
 
         /// <summary>
+        /// 指定された他のプレイヤーに、自身のプレイヤーデータを送信させる
+        /// </summary>
+        /// <param name="otherPlayers"></param>
+        public void sendMyDataToOthers(Player[] otherPlayers, int maxPlayerCount, MessageData.Type type) {
+            foreach (var player in otherPlayers) player.sendPlayerDataToClient(this, maxPlayerCount, type);
+        }
+
+        /// <summary>
         /// 結びついているクライアントに渡されたプレイヤーのデータを渡す
         /// </summary>
         /// <param name="player"></param>
