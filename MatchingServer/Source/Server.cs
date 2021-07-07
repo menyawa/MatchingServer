@@ -73,24 +73,7 @@ namespace MatchingServer {
                     } else continue;
                 }
 
-                //クライアントからのメッセージに応じた処理を行う
-                switch (clientMessageData.type_) {
-                    case MessageData.Type.Join:
-                        currentRoomIndex = getDefaultLobby().joinPlayer(clientMessageData.PLAYER_ID, clientMessageData.PLAYER_NICK_NAME, webSocket, clientMessageData.MAX_PLAYER_COUNT);
-                        break;
-
-                    case MessageData.Type.Leave:
-                        //ルームに入る→退室するという順番でないと、当然ながらエラーが出るので注意
-                        getDefaultLobby().leavePlayer(clientMessageData.PLAYER_ID, currentRoomIndex);
-                        break;
-
-                    case MessageData.Type.PeriodicReport:
-                        break;
-                    case MessageData.Type.Disconnect:
-                        //切断要請があり次第切断する
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
-                        break;
-                }
+                currentRoomIndex = await clientMessageProgress(webSocket, clientMessageData, currentRoomIndex);
             }
         }
 
@@ -161,6 +144,35 @@ namespace MatchingServer {
         public static void sendPlayerDataToClient(WebSocket webSocket, Player player, int maxPlayerCount, MessageData.Type type) {
             var messageData = new MessageData(player.ID, player.NICK_NAME, maxPlayerCount, type);
             sendMessage(webSocket, JsonSerializer.Serialize(messageData));
+        }
+
+        /// <summary>
+        /// クライアントからのメッセージに応じた処理を行う
+        /// TODO:もうちょっといい名前を考える
+        /// </summary>
+        /// <param name="webSocket"></param>
+        /// <param name="clientMessageData"></param>
+        /// <param name="currentRoomIndex"></param>
+        /// <returns></returns>
+        private static async Task<int> runByClientMessageProgress(WebSocket webSocket, MessageData clientMessageData, int currentRoomIndex) {
+            switch (clientMessageData.type_) {
+                case MessageData.Type.Join:
+                    currentRoomIndex = getDefaultLobby().joinPlayer(clientMessageData.PLAYER_ID, clientMessageData.PLAYER_NICK_NAME, webSocket, clientMessageData.MAX_PLAYER_COUNT);
+                    break;
+
+                case MessageData.Type.Leave:
+                    //ルームに入る→退室するという順番でないと、当然ながらエラーが出るので注意
+                    getDefaultLobby().leavePlayer(clientMessageData.PLAYER_ID, currentRoomIndex);
+                    break;
+
+                case MessageData.Type.PeriodicReport:
+                    break;
+                case MessageData.Type.Disconnect:
+                    //切断要請があり次第切断する
+                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+                    break;
+            }
+            return currentRoomIndex;
         }
 
         /// <summary>
