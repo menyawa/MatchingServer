@@ -66,5 +66,13 @@ namespace MatchingServer {
 
             Server.sendPlayerDataToClient(WEBSOCKET, player, maxPlayerCount, type);
         }
+
+        public override string ToString() {
+            string str = $"ID: {ID}\n";
+            str += $"ニックネーム： {NICK_NAME}\n";
+            str += type_ == Type.Client ? "参加プレイヤー\n" : "CPU\n";
+
+            return str;
+        }
     }
 }

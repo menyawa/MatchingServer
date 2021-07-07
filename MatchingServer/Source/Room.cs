@@ -127,5 +127,19 @@ namespace MatchingServer {
         /// </summary>
         /// <returns></returns>
         public bool canJoin() { return isOpened_ && PLAYERS.Count() < MAX_PLAYER_COUNT; }
+
+        public override string ToString() {
+            string str = "開室・閉室： " + (isOpened_ ? "開室" : "閉室") + "\n";
+            str += $"最大収容人数： {MAX_PLAYER_COUNT}\n";
+            str += $"現在のプレイヤー人数(CPUも含む)： {PLAYERS.Count()}\n";
+            for (int index = 0; index < PLAYERS.Count(); index++) {
+                //プレイヤー番号は1から始まることに注意
+                str += $"プレイヤー{index + 1}\n";
+                //プレイヤーの情報間には間を開けたほうが分かりやすい
+                str += PLAYERS[index].ToString() + "\n";
+            }
+
+            return str;
+        }
     }
 }

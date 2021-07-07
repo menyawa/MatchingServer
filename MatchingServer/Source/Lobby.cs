@@ -47,5 +47,16 @@ namespace MatchingServer {
             player.sendMyDataToOthers(room.getOtherPlayers(player), room.MAX_PLAYER_COUNT, MessageData.Type.Leave);
             return room.leave(player);
         }
+
+        public override string ToString() {
+            string str = $"現在のルーム数： {ROOMS.Count()}\n";
+            for(int index = 0; index < ROOMS.Count(); index++) {
+                //ルーム番号は1から始まることに注意
+                //またルーム間は2行開ける(プレイヤーの情報間の空行はは1行なので、それとの区別の意も込めて)
+                str += $"ルーム{index + 1}\n";
+                str += ROOMS[index].ToString() + "\n\n";
+            }
+            return str;
+        }
     }
 }
