@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace MatchingServer {
@@ -43,18 +45,27 @@ namespace MatchingServer {
         }
 
         /// <summary>
-        /// メッセージ内容を表示
+        /// メッセージ内容を詳細に表示する
         /// デバッグ用
         /// </summary>
         /// <returns></returns>
-        public override string ToString() {
+        public string printInfo() {
             //大丈夫だとは思うが、一応パフォーマンスを考えてStringBuilderを使用
             var stringBuilder = new StringBuilder($"プレイヤーID: {PLAYER_ID}\n");
             stringBuilder.Append($"ニックネーム： {PLAYER_NICK_NAME}\n");
             stringBuilder.Append($"希望プレイ人数： {MAX_PLAYER_COUNT}\n");
             stringBuilder.Append($"指示タイプ： {type_}\n");
+            Console.WriteLine(stringBuilder.ToString());
 
             return stringBuilder.ToString();
+        }
+
+        /// <summary>
+        /// 自身をJson文字列化して返す
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString() {
+            return JsonSerializer.Serialize(this);
         }
 
         public override bool Equals(object obj) {

@@ -73,7 +73,7 @@ namespace MatchingServer {
                     } else continue;
                 }
 
-                currentRoomIndex = await clientMessageProgress(webSocket, clientMessageData, currentRoomIndex);
+                currentRoomIndex = await runByClientMessageProgress(webSocket, clientMessageData, currentRoomIndex);
             }
         }
 
