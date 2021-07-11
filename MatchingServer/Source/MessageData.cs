@@ -19,12 +19,13 @@ namespace MatchingServer {
         [JsonInclude]
         public int MAX_PLAYER_COUNT;
 
-        //新しくルームに入りたいのか(対戦を行いたいのか)、今いるルームから退出したい(接続は切らない)のか、定時連絡なのか、切断するのか
+        //新しくルームに入りたいのか(対戦を行いたいのか)、今いるルームから退出したい(接続は切らない)のか、定時連絡なのか、切断するのか、片方がタイムアウトしたのか
         public enum Type {
             Join,
             Leave,
             PeriodicReport,
-            Disconnect
+            Disconnect,
+            TimeOut
         }
         [JsonInclude]
         public Type type_;
