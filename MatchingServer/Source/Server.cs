@@ -14,30 +14,26 @@ namespace MatchingServer {
     /// サーバは2つ以上立てないので静的クラスとして作成
     /// </summary>
     static class Server {
+        private static readonly HttpListener HTTP_LISTENER;
         private static readonly Encoding ENCODING = Encoding.UTF8;
         private static readonly List<Lobby> LOBBYS = new List<Lobby> { new Lobby() };
 
+        static Server() {
+            //Httpリスナーを立ち上げておく(接続待ちは別で行う)
+            Console.WriteLine("HttpListener Init");
+            HTTP_LISTENER = new HttpListener();
+            HTTP_LISTENER.Prefixes.Add("http://localhost:8000/ws/");
+            HTTP_LISTENER.Start();
+        }
+
         /// <summary>
+        /// クライアントとの接続を行っているWebSocketを受け取り、各種作業を行う
+        /// クライアントの接続ごとに1つずつこのメソッドが回る
         /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
         /// </summary>
         /// <returns></returns>
-        public static async Task Run() {
-            //Httpリスナーを立ち上げ、クライアントからの接続を待つ
-            var httpListener = new HttpListener();
-            httpListener.Prefixes.Add("http://localhost:8000/ws/");
-            httpListener.Start();
-            var httpListenerContext = await httpListener.GetContextAsync();
-
-            //クライアントからのリクエストがWebSocketでないなら閉じてエラーを返す
-            if (httpListenerContext.Request.IsWebSocketRequest == false) {
-                httpListenerContext.Response.StatusCode = 400;
-                httpListenerContext.Response.Close();
-                return;
-            }
-
-            //WebSocketでレスポンスを返却
-            var httpListenerWebSocketContext = await httpListenerContext.AcceptWebSocketAsync(null);
-            var webSocket = httpListenerWebSocketContext.WebSocket;
+        public static async Task Run(WebSocket webSocket) {
+            return;
 
             //応答なしの累計時間
             double noResponseTime = 0;
@@ -75,6 +71,26 @@ namespace MatchingServer {
 
                 currentRoomIndex = await runByClientMessageProgress(webSocket, clientMessageData, currentRoomIndex);
             }
+        }
+
+        /// <summary>
+        /// クライアントのアクセスを受け入れ、WebSOcketを返す
+        /// </summary>
+        public static async Task<WebSocket> acceptClientConnecting() {
+            Console.WriteLine("Accept WebSocket Standby");
+            var httpListenerContext = await HTTP_LISTENER.GetContextAsync();
+
+            //クライアントからのリクエストがWebSocketでないなら閉じてnullを返す
+            if (httpListenerContext.Request.IsWebSocketRequest == false) {
+                Console.WriteLine("Error: Request is Not WebSocket");
+                httpListenerContext.Response.StatusCode = 400;
+                httpListenerContext.Response.Close();
+                return null;
+            }
+
+            //WebSocketでレスポンスを返却
+            var httpListenerWebSocketContext = await httpListenerContext.AcceptWebSocketAsync(null);
+            return httpListenerWebSocketContext.WebSocket;
         }
 
         /// <summary>
