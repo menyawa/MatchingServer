@@ -51,8 +51,8 @@ namespace MatchingServer {
                 //最後でなく最初に更新を行わないと、途中でcontinueを行った場合更新が行われないので注意
                 deltaTimer.update();
 
-                //あまり頻繁に送受信してもあまり意味がないので、意図的に1秒間隔で通信を行う
-                await Task.Delay(1000);
+                //あまり頻繁に送受信してもあまり意味がないので、意図的に0.5秒間隔で通信を行う
+                await Task.Delay(500);
 
                 //メッセージの受信完了したら新たなメッセージの受信待ちを開始し、応答無しの累計時間をリセットする
                 var clientMessageData = MessageData.getBlankData();
