@@ -9,8 +9,11 @@ namespace MatchingServer {
                 //awaitで止まるため、接続が行われないまま次の受け入れが始まる心配はない
                 //受け入れがエラーとなって終わった場合nullが返されるので、その場合次に行く
                 var webSocket = await Server.acceptClientConnecting();
-                if(webSocket != null) await Server.Run(webSocket);
-                Console.WriteLine("Next");
+                if(webSocket != null) Server.RunAsync(webSocket);
+                Console.WriteLine("Next Standby");
+
+
+                //ゲームアプリ→クライアントアプリ→サーバへのメッセージ伝送と、その逆を検証する
             }
         }
     }

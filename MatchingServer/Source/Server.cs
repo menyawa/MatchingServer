@@ -15,8 +15,11 @@ namespace MatchingServer {
     /// </summary>
     static class Server {
         private static readonly HttpListener HTTP_LISTENER;
-        private static readonly Encoding ENCODING = Encoding.UTF8;
         private static readonly List<Lobby> LOBBYS = new List<Lobby> { new Lobby() };
+        //メッセージの送信・復号に用いるエンコーディング
+        private static readonly Encoding ENCODING = Encoding.UTF8;
+        //無効な場合のIDの値(リセットに用いる)
+        private const int INVAID_ID = -1;
 
         static Server() {
             //Httpリスナーを立ち上げておく(接続待ちは別で行う)
@@ -32,14 +35,13 @@ namespace MatchingServer {
         /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
         /// </summary>
         /// <returns></returns>
-        public static async Task Run(WebSocket webSocket) {
-            return;
-
+        public static async Task RunAsync(WebSocket webSocket) {
             //応答なしの累計時間
             double noResponseTime = 0;
             var deltaTimer = new DeltaTimer();
-            //現在プレイヤーがいるルームのID
-            int currentRoomIndex = -1;
+            //このメソッドで担当するプレイヤーのIDと、現在プレイヤーがいるルームのindex
+            int playerID = INVAID_ID;
+            int currentRoomIndex = INVAID_ID;
             //受信中の応答無しの時間を測定する関係上、awaitは使わない
             var clientMessageTask = getReceiveMessageAsync(webSocket);
             while (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.CloseReceived) {
@@ -55,6 +57,9 @@ namespace MatchingServer {
                 if (clientMessageTask.IsCompletedSuccessfully) {
                     //ここで受信データを入れておかないと、この後では既に新しい待受けのタスクに変わってしまっているため、正常にメッセージを受信できないことに注意
                     clientMessageData = JsonSerializer.Deserialize<MessageData>(await clientMessageTask);
+                    
+                    clientMessageData.printInfo();
+                    
                     clientMessageTask = getReceiveMessageAsync(webSocket);
                     noResponseTime = 0;
                 } else {
