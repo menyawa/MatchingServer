@@ -47,30 +47,30 @@ namespace MatchingServer {
             string playerID = INVAID_ID.ToString();
             int currentRoomIndex = INVAID_ID;
             //受信中の応答無しの時間を測定する関係上、awaitは使わない
-            var getClientMessageTask = getReceiveMessageAsync(webSocket);
+            var getClientMessageTask = Task.Run(() => getReceiveMessageAsync(webSocket));
             //今後同期を行うことも考え、Task.Delayでの通信遅延は行わず毎フレーム更新を行う
             while (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.CloseReceived) {
                 //メッセージの受信完了したら新たなメッセージの受信待ちを開始し、応答無しの累計時間をリセットする
                 var clientMessageData = MessageData.getBlankData();
                 if (getClientMessageTask.IsCompletedSuccessfully) {
-                    //ここで受信データを入れておかないと、この後では既に新しい待受けのタスクに変わってしまっているため、正常にメッセージを受信できないことに注意
-                    clientMessageData = JsonSerializer.Deserialize<MessageData>(await getClientMessageTask);
+                    //ここで受信データをキャッシュしておかないと、この後では既に新しい待受けのタスクに変わってしまっているため、正常にメッセージを受信できないことに注意
+                    clientMessageData = JsonSerializer.Deserialize<MessageData>(getClientMessageTask.Result);
                     
                     clientMessageData.printInfo();
                     
-                    getClientMessageTask = getReceiveMessageAsync(webSocket);
+                    getClientMessageTask = Task.Run(() => getReceiveMessageAsync(webSocket));
                     //応答があった時点で応答なしの時間はリセットしておく
                     noResponseTimeStopwatch.Restart();
                 } else {
                     if (isTimeOut(noResponseTimeStopwatch.Elapsed.TotalSeconds)) {
-                        Debug.WriteLine("Time Out");
                         close(webSocket, "Time Out", playerID);
                         return;
                     } else continue;
                 }
 
                 //メッセージを受信しているならそれに応じた入室、退室等の処理を行う
-                currentRoomIndex = await runByClientMessageProgress(webSocket, clientMessageData, currentRoomIndex);
+                //ここを非同期で実行してしまうと前回のメッセージの処理が終わらないうちに次のメッセージの処理が始まる危険性があるので注意
+                currentRoomIndex = runByClientMessageProgress(webSocket, clientMessageData, currentRoomIndex);
             }
         }
 
@@ -82,7 +82,7 @@ namespace MatchingServer {
         /// <param name="messageData"></param>
         /// <param name="currentRoomIndex"></param>
         /// <returns></returns>
-        private static async Task<int> runByClientMessageProgress(WebSocket webSocket, MessageData messageData, int currentRoomIndex) {
+        private static int runByClientMessageProgress(WebSocket webSocket, MessageData messageData, int currentRoomIndex) {
             switch (messageData.type_) {
                 case MessageData.Type.Join:
                     Debug.WriteLine($"Join Player ID: {messageData.PLAYER_ID}");
@@ -108,7 +108,7 @@ namespace MatchingServer {
         }
 
         /// <summary>
-        /// クライアントのアクセスを受け入れ、WebSOcketを返す
+        /// クライアントのアクセスを受け入れ、WebSocketを返す
         /// </summary>
         public static async Task<WebSocket> acceptClientConnecting() {
             Debug.WriteLine("Accept WebSocket Standby");
@@ -211,12 +211,14 @@ namespace MatchingServer {
 
         /// <summary>
         /// 指定されたWebSocketでの通信を終了する
+        /// 非同期での実行を行うと、回線が閉じきらないうちに次のメッセージの処理を行ってしまう危険があるので注意
         /// </summary>
         /// <param name="webSocket"></param>
         /// <param name="playerID"></param>
         /// <returns></returns>
-        private static async Task close(WebSocket webSocket, string statusDescription, string playerID) {
-            Debug.WriteLine($"Disconnect Player ID: {playerID}");
+        private static void close(WebSocket webSocket, string statusDescription, string playerID) {
+            Debug.WriteLine($"Close WebSocket Because {statusDescription}");
+            Debug.WriteLine($"Player ID: {playerID}");
             webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
         }
 
