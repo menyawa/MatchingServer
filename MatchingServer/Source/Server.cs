@@ -37,22 +37,17 @@ namespace MatchingServer {
         /// </summary>
         /// <returns></returns>
         public static async Task RunAsync(WebSocket webSocket) {
-            //応答なしの累計時間
-            double noResponseTime = 0;
-            var deltaTimer = new DeltaTimer();
+            //応答なしの時間を測るため、ストップウォッチを用意して開始
+            var noResponseTimeStopwatch = new Stopwatch();
+            noResponseTimeStopwatch.Start();
+
             //このメソッドで担当するプレイヤーのIDと、現在プレイヤーがいるルームのindex
             string playerID = INVAID_ID.ToString();
             int currentRoomIndex = INVAID_ID;
             //受信中の応答無しの時間を測定する関係上、awaitは使わない
             var getClientMessageTask = getReceiveMessageAsync(webSocket);
+            //今後同期を行うことも考え、Task.Delayでの通信遅延は行わず毎フレーム更新を行う
             while (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.CloseReceived) {
-                //毎フレーム必ず更新を行う
-                //最後でなく最初に更新を行わないと、途中でcontinueを行った場合更新が行われないので注意
-                deltaTimer.update();
-
-                //あまり頻繁に送受信してもあまり意味がないので、意図的に0.5秒間隔で通信を行う
-                await Task.Delay(500);
-
                 //メッセージの受信完了したら新たなメッセージの受信待ちを開始し、応答無しの累計時間をリセットする
                 var clientMessageData = MessageData.getBlankData();
                 if (getClientMessageTask.IsCompletedSuccessfully) {
@@ -62,19 +57,17 @@ namespace MatchingServer {
                     clientMessageData.printInfo();
                     
                     getClientMessageTask = getReceiveMessageAsync(webSocket);
-                    noResponseTime = 0;
+                    //応答があった時点で応答なしの時間はリセットしておく
+                    noResponseTimeStopwatch.Restart();
                 } else {
-                    //完了していないなら応答なしの時間を加算し、タイムアウト次第切断する
-                    //まだタイムアウトしないなら次のループへ
-                    noResponseTime += deltaTimer.get();
-                    Debug.WriteLine($"No Responce Time: {noResponseTime}");
-                    if (isTimeOut(noResponseTime)) {
+                    if (isTimeOut(noResponseTimeStopwatch.Elapsed.TotalSeconds)) {
                         Debug.WriteLine("Time Out");
                         close(webSocket, "Time Out", playerID);
                         return;
                     } else continue;
                 }
 
+                //メッセージを受信しているならそれに応じた入室、退室等の処理を行う
                 currentRoomIndex = await runByClientMessageProgress(webSocket, clientMessageData, currentRoomIndex);
             }
         }

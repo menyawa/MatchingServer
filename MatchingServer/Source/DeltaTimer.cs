@@ -16,7 +16,7 @@ namespace MatchingServer {
         public double get() {
             var interval = DateTime.Now - prevFrameTime_;
             //算出されるのはミリ秒なので、10^-3をかけて秒にする
-            return interval.TotalMilliseconds * Math.Pow(10, -3);
+            return interval.TotalMilliseconds /** Math.Pow(10, -3)*/;
         }
 
         /// <summary>
