@@ -5,6 +5,7 @@ namespace MatchingServer {
     /// フレーム間の経過時間を司るタイマーのクラス
     /// 各接続に対し1つインスタンスを作成しなければならない(各接続ごとにメインループはあり、フレーム間の経過時間も違うため)ので、staticクラスにはできないことに注意
     /// </summary>
+    [Obsolete("StopWatchクラスを用いてください(その方が簡潔に書けます)")]
     class DeltaTimer {
         //前回のフレームの日時
         private DateTime prevFrameTime_ = DateTime.Now;
