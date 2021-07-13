@@ -41,7 +41,7 @@ namespace MatchingServer {
             double noResponseTime = 0;
             var deltaTimer = new DeltaTimer();
             //このメソッドで担当するプレイヤーのIDと、現在プレイヤーがいるルームのindex
-            int playerID = INVAID_ID;
+            string playerID = INVAID_ID.ToString();
             int currentRoomIndex = INVAID_ID;
             //受信中の応答無しの時間を測定する関係上、awaitは使わない
             var getClientMessageTask = getReceiveMessageAsync(webSocket);
@@ -70,13 +70,46 @@ namespace MatchingServer {
                     Debug.WriteLine($"No Responce Time: {noResponseTime}");
                     if (isTimeOut(noResponseTime)) {
                         Debug.WriteLine("Time Out");
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Time Out", CancellationToken.None);
-                        break;
+                        close(webSocket, "Time Out", playerID);
+                        return;
                     } else continue;
                 }
 
                 currentRoomIndex = await runByClientMessageProgress(webSocket, clientMessageData, currentRoomIndex);
             }
+        }
+
+        /// <summary>
+        /// クライアントからのメッセージに応じた処理を行う
+        /// TODO:もうちょっといい名前を考える
+        /// </summary>
+        /// <param name="webSocket"></param>
+        /// <param name="messageData"></param>
+        /// <param name="currentRoomIndex"></param>
+        /// <returns></returns>
+        private static async Task<int> runByClientMessageProgress(WebSocket webSocket, MessageData messageData, int currentRoomIndex) {
+            switch (messageData.type_) {
+                case MessageData.Type.Join:
+                    Debug.Write($"Join Player ID: {messageData.PLAYER_ID}");
+                    currentRoomIndex = getDefaultLobby().joinPlayer(messageData.PLAYER_ID, messageData.PLAYER_NICK_NAME, webSocket, messageData.MAX_PLAYER_COUNT);
+                    break;
+
+                case MessageData.Type.Leave:
+                    //ルームに入る→退室するという順番でないと、当然ながらエラーが出るので注意
+                    Debug.Write($"Leave Player ID: {messageData.PLAYER_ID}");
+                    getDefaultLobby().leavePlayer(messageData.PLAYER_ID, currentRoomIndex);
+                    currentRoomIndex = INVAID_ID;
+                    break;
+
+                case MessageData.Type.PeriodicReport:
+                    break;
+                case MessageData.Type.Disconnect:
+                    //切断要請があり次第切断する
+                    close(webSocket, "Nomal Close", messageData.PLAYER_ID);
+                    currentRoomIndex = INVAID_ID;
+                    break;
+            }
+            return currentRoomIndex;
         }
 
         /// <summary>
@@ -173,41 +206,23 @@ namespace MatchingServer {
         }
 
         /// <summary>
-        /// クライアントからのメッセージに応じた処理を行う
-        /// TODO:もうちょっといい名前を考える
-        /// </summary>
-        /// <param name="webSocket"></param>
-        /// <param name="clientMessageData"></param>
-        /// <param name="currentRoomIndex"></param>
-        /// <returns></returns>
-        private static async Task<int> runByClientMessageProgress(WebSocket webSocket, MessageData clientMessageData, int currentRoomIndex) {
-            switch (clientMessageData.type_) {
-                case MessageData.Type.Join:
-                    currentRoomIndex = getDefaultLobby().joinPlayer(clientMessageData.PLAYER_ID, clientMessageData.PLAYER_NICK_NAME, webSocket, clientMessageData.MAX_PLAYER_COUNT);
-                    break;
-
-                case MessageData.Type.Leave:
-                    //ルームに入る→退室するという順番でないと、当然ながらエラーが出るので注意
-                    getDefaultLobby().leavePlayer(clientMessageData.PLAYER_ID, currentRoomIndex);
-                    break;
-
-                case MessageData.Type.PeriodicReport:
-                    break;
-                case MessageData.Type.Disconnect:
-                    //切断要請があり次第切断する
-                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
-                    break;
-            }
-            return currentRoomIndex;
-        }
-
-        /// <summary>
         /// クライアントからの応答がタイムアウトしたかどうか
         /// </summary>
         /// <param name="noResponceTime"></param>
         /// <returns></returns>
         private static bool isTimeOut(double noResponceTime) {
             return noResponceTime >= 10.0;
+        }
+
+        /// <summary>
+        /// 指定されたWebSocketでの通信を終了する
+        /// </summary>
+        /// <param name="webSocket"></param>
+        /// <param name="playerID"></param>
+        /// <returns></returns>
+        private static async Task close(WebSocket webSocket, string statusDescription, string playerID) {
+            Debug.Write($"Disconnect Player ID: {playerID}");
+            webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
         }
 
         /// <summary>
