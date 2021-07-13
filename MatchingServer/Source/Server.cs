@@ -37,6 +37,8 @@ namespace MatchingServer {
         /// </summary>
         /// <returns></returns>
         public static async Task RunAsync(WebSocket webSocket) {
+            Debug.WriteLine("Start Message Response");
+
             //応答なしの時間を測るため、ストップウォッチを用意して開始
             var noResponseTimeStopwatch = new Stopwatch();
             noResponseTimeStopwatch.Start();
@@ -83,13 +85,13 @@ namespace MatchingServer {
         private static async Task<int> runByClientMessageProgress(WebSocket webSocket, MessageData messageData, int currentRoomIndex) {
             switch (messageData.type_) {
                 case MessageData.Type.Join:
-                    Debug.Write($"Join Player ID: {messageData.PLAYER_ID}");
+                    Debug.WriteLine($"Join Player ID: {messageData.PLAYER_ID}");
                     currentRoomIndex = getDefaultLobby().joinPlayer(messageData.PLAYER_ID, messageData.PLAYER_NICK_NAME, webSocket, messageData.MAX_PLAYER_COUNT);
                     break;
 
                 case MessageData.Type.Leave:
                     //ルームに入る→退室するという順番でないと、当然ながらエラーが出るので注意
-                    Debug.Write($"Leave Player ID: {messageData.PLAYER_ID}");
+                    Debug.WriteLine($"Leave Player ID: {messageData.PLAYER_ID}");
                     getDefaultLobby().leavePlayer(messageData.PLAYER_ID, currentRoomIndex);
                     currentRoomIndex = INVAID_ID;
                     break;
@@ -214,7 +216,7 @@ namespace MatchingServer {
         /// <param name="playerID"></param>
         /// <returns></returns>
         private static async Task close(WebSocket webSocket, string statusDescription, string playerID) {
-            Debug.Write($"Disconnect Player ID: {playerID}");
+            Debug.WriteLine($"Disconnect Player ID: {playerID}");
             webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
         }
 
