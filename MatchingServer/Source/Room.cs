@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.WebSockets;
 
@@ -59,6 +60,8 @@ namespace MatchingServer {
             if (player == null) return null;
             if (PLAYERS.Count() == MAX_PLAYER_COUNT) return null;
 
+            Debug.WriteLine($"プレイヤーが入室しました ID: {player.ID}");
+
             PLAYERS.Add(player);
             //満員になり次第ルームを閉じる
             if (PLAYERS.Count() == MAX_PLAYER_COUNT) isOpened_ = false;
@@ -80,6 +83,8 @@ namespace MatchingServer {
         public Player leave(Player player) {
             //渡されたPlayerがnullなら何もせず返す
             if (player == null) return null;
+
+            Debug.WriteLine($"プレイヤーが退出しました ID: {player.ID}");
 
             PLAYERS.Remove(player);
             return player;

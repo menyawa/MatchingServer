@@ -15,7 +15,7 @@ namespace MatchingServer {
                 //受け入れがエラーとなって終わった場合nullが返されるので、その場合次に行く
                 var webSocket = await Server.acceptClientConnecting();
                 if (webSocket != null) Task.Run(() => Server.RunAsync(webSocket));
-                Debug.WriteLine("Next Standby");
+                Debug.WriteLine("次のクライアントの接続承認の待受けに入ります");
             }
         }
     }

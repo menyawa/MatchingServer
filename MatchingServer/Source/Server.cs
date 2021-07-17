@@ -23,8 +23,8 @@ namespace MatchingServer {
         private const int INVAID_ID = -1;
 
         static Server() {
-            //Httpリスナーを立ち上げておく(接続待ちは別で行う)
-            Debug.WriteLine("HttpListener Init");
+            //接続待ちは別で行う
+            Debug.WriteLine("HttpListenerを初期化します");
             HTTP_LISTENER = new HttpListener();
             HTTP_LISTENER.Prefixes.Add("http://localhost:8000/ws/");
             HTTP_LISTENER.Start();
@@ -37,7 +37,7 @@ namespace MatchingServer {
         /// </summary>
         /// <returns></returns>
         public static async Task RunAsync(WebSocket webSocket) {
-            Debug.WriteLine("Start Message Response");
+            Debug.WriteLine("メッセージの送受信開始");
 
             //応答なしの時間を測るため、ストップウォッチを用意して開始
             var noResponseTimeStopwatch = new Stopwatch();
@@ -50,20 +50,19 @@ namespace MatchingServer {
             var getClientMessageTask = Task.Run(() => getReceiveMessageAsync(webSocket));
             //今後同期を行うことも考え、Task.Delayでの通信遅延は行わず毎フレーム更新を行う
             while (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.CloseReceived) {
-                //メッセージの受信完了したら新たなメッセージの受信待ちを開始し、応答無しの累計時間をリセットする
                 var clientMessageData = MessageData.getBlankData();
                 if (getClientMessageTask.IsCompletedSuccessfully) {
                     //ここで受信データをキャッシュしておかないと、この後では既に新しい待受けのタスクに変わってしまっているため、正常にメッセージを受信できないことに注意
-                    clientMessageData = JsonSerializer.Deserialize<MessageData>(getClientMessageTask.Result);
-                    
-                    clientMessageData.printInfo();
-                    
+                    var temp = getClientMessageTask.Result;
+                    clientMessageData = JsonSerializer.Deserialize<MessageData>(temp);
+                    //メッセージの受信が完了したら新たな受信待ちを開始しないと次のメッセージが受け取れないことに注意
                     getClientMessageTask = Task.Run(() => getReceiveMessageAsync(webSocket));
+                    
                     //応答があった時点で応答なしの時間はリセットしておく
                     noResponseTimeStopwatch.Restart();
                 } else {
                     if (isTimeOut(noResponseTimeStopwatch.Elapsed.TotalSeconds)) {
-                        close(webSocket, "Time Out", playerID);
+                        await closeAsync(webSocket, "タイムアウト", playerID);
                         return;
                     } else continue;
                 }
@@ -85,13 +84,11 @@ namespace MatchingServer {
         private static int runByClientMessageProgress(WebSocket webSocket, MessageData messageData, int currentRoomIndex) {
             switch (messageData.type_) {
                 case MessageData.Type.Join:
-                    Debug.WriteLine($"Join Player ID: {messageData.PLAYER_ID}");
                     currentRoomIndex = getDefaultLobby().joinPlayer(messageData.PLAYER_ID, messageData.PLAYER_NICK_NAME, webSocket, messageData.MAX_PLAYER_COUNT);
                     break;
 
                 case MessageData.Type.Leave:
                     //ルームに入る→退室するという順番でないと、当然ながらエラーが出るので注意
-                    Debug.WriteLine($"Leave Player ID: {messageData.PLAYER_ID}");
                     getDefaultLobby().leavePlayer(messageData.PLAYER_ID, currentRoomIndex);
                     currentRoomIndex = INVAID_ID;
                     break;
@@ -100,7 +97,7 @@ namespace MatchingServer {
                     break;
                 case MessageData.Type.Disconnect:
                     //切断要請があり次第切断する
-                    close(webSocket, "Nomal Close", messageData.PLAYER_ID);
+                    Task.Run(() => closeAsync(webSocket, "通常終了", messageData.PLAYER_ID));
                     currentRoomIndex = INVAID_ID;
                     break;
             }
@@ -111,18 +108,19 @@ namespace MatchingServer {
         /// クライアントのアクセスを受け入れ、WebSocketを返す
         /// </summary>
         public static async Task<WebSocket> acceptClientConnecting() {
-            Debug.WriteLine("Accept WebSocket Standby");
+            Debug.WriteLine("クライアントの接続承認の待受けに入りました");
             var httpListenerContext = await HTTP_LISTENER.GetContextAsync();
 
             //クライアントからのリクエストがWebSocketでないなら閉じてnullを返す
             if (httpListenerContext.Request.IsWebSocketRequest == false) {
-                Debug.WriteLine("Error: Request is Not WebSocket");
+                Debug.WriteLine("エラー：クライアントのリクエストがWebSocketではありません");
                 httpListenerContext.Response.StatusCode = 400;
                 httpListenerContext.Response.Close();
                 return null;
             }
 
             //WebSocketでレスポンスを返却
+            Debug.WriteLine("クライアントの接続を承認しました");
             var httpListenerWebSocketContext = await httpListenerContext.AcceptWebSocketAsync(null);
             return httpListenerWebSocketContext.WebSocket;
         }
@@ -133,12 +131,13 @@ namespace MatchingServer {
         /// <param name="webSocket"></param>
         /// <param name="message"></param>
         /// <returns></returns>
-        private static void sendMessage(WebSocket webSocket, string message) {
-            Debug.WriteLine($"Send Client to {message}");
+        private static async Task sendMessageAsync(WebSocket webSocket, string message) {
+            Debug.WriteLine($"クライアントアプリにメッセージを送信しました： {message}");
             //文字列をバイト列に変換して送る
             var buffer = ENCODING.GetBytes(message);
             var segment = new ArraySegment<byte>(buffer);
-            webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+            //awaitを付けておかないと正常に送信できないので注意
+            await webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
         }
 
         /// <summary>
@@ -149,43 +148,25 @@ namespace MatchingServer {
         /// <param name="webSocket"></param>
         /// <returns></returns>
         private static async Task<string> getReceiveMessageAsync(WebSocket webSocket) {
+            Debug.WriteLine("クライアントからのメッセージ取得を開始します");
+
             var buffer = new byte[1024];
             //所得情報確保用の配列を準備
             var segment = new ArraySegment<byte>(buffer);
             //サーバからのレスポンス情報を取得
             var result = await webSocket.ReceiveAsync(segment, CancellationToken.None);
 
-            //エンドポイントCloseの場合、処理を中断
             if (result.MessageType == WebSocketMessageType.Close) {
-                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Already Close",
-                  CancellationToken.None);
+                Debug.WriteLine("エラー：エンドポイントCloseのためメッセージを取得できません、nullを返します");
                 return null;
             }
-            //バイナリの場合は扱えないため、処理を中断
             if (result.MessageType == WebSocketMessageType.Binary) {
-                await webSocket.CloseAsync(WebSocketCloseStatus.InvalidMessageType,
-                  "I don't do binary", CancellationToken.None);
+                Debug.WriteLine("エラー：送られてきたメッセージがバイナリのため取得できません、nullを返します");
                 return null;
             }
 
-            //メッセージの最後まで取得
-            int count = result.Count;
-            while (result.EndOfMessage == false) {
-                //バッファの長さをメッセージの長さが超えるようなら中断
-                if (count >= buffer.Length) {
-                    await webSocket.CloseAsync(WebSocketCloseStatus.InvalidPayloadData,
-                      "That's too long", CancellationToken.None);
-                    return null;
-                }
-
-                segment = new ArraySegment<byte>(buffer, count, buffer.Length - count);
-                result = await webSocket.ReceiveAsync(segment, CancellationToken.None);
-
-                count += result.Count;
-            }
-
-            string messageStr = ENCODING.GetString(buffer, 0, count);
-            Debug.WriteLine($"Get message of {messageStr}");
+            string messageStr = ENCODING.GetString(buffer, 0, result.Count);
+            Debug.WriteLine($"メッセージを取得しました： {messageStr}");
             return messageStr;
         }
 
@@ -195,9 +176,9 @@ namespace MatchingServer {
         /// <param name="webSocket"></param>
         /// <param name="player"></param>
         public static void sendPlayerDataToClient(WebSocket webSocket, Player player, int maxPlayerCount, MessageData.Type type) {
-            Debug.WriteLine("Send Player Data");
+            Debug.WriteLine("プレイヤーデータを送ります");
             var messageData = new MessageData(player.ID, player.NICK_NAME, maxPlayerCount, type);
-            sendMessage(webSocket, JsonSerializer.Serialize(messageData));
+            Task.Run(() => sendMessageAsync(webSocket, JsonSerializer.Serialize(messageData)));
         }
 
         /// <summary>
@@ -216,10 +197,10 @@ namespace MatchingServer {
         /// <param name="webSocket"></param>
         /// <param name="playerID"></param>
         /// <returns></returns>
-        private static void close(WebSocket webSocket, string statusDescription, string playerID) {
-            Debug.WriteLine($"Close WebSocket Because {statusDescription}");
-            Debug.WriteLine($"Player ID: {playerID}");
-            webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
+        private static async Task closeAsync(WebSocket webSocket, string statusDescription, string playerID) {
+            Debug.WriteLine($"クライアントとの接続を終了します 理由： {statusDescription}");
+            Debug.WriteLine($"該当プレイヤーID: {playerID}");
+            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
         }
 
         /// <summary>
