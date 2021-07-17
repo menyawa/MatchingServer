@@ -28,10 +28,31 @@ namespace MatchingServer {
             HTTP_LISTENER = new HttpListener();
             HTTP_LISTENER.Prefixes.Add("http://localhost:8000/ws/");
             HTTP_LISTENER.Start();
+            Debug.WriteLine("HttpListenerを初期化しました");
         }
 
         /// <summary>
-        /// クライアントとの接続を行っているWebSocketを受け取り、各種作業を行う
+        /// クライアントのアクセスを受け入れ、コネクションのWebSocketを返す
+        /// </summary>
+        public static async Task<WebSocket> acceptClientConnecting() {
+            Debug.WriteLine("クライアントの接続承認の待受けに入りました");
+            var httpListenerContext = await HTTP_LISTENER.GetContextAsync();
+
+            //クライアントからのリクエストがWebSocketでないなら閉じてnullを返す
+            if (httpListenerContext.Request.IsWebSocketRequest == false) {
+                Debug.WriteLine("エラー：クライアントのリクエストがWebSocketではありません");
+                httpListenerContext.Response.StatusCode = 400;
+                httpListenerContext.Response.Close();
+                return null;
+            }
+
+            var httpListenerWebSocketContext = await httpListenerContext.AcceptWebSocketAsync(null);
+            Debug.WriteLine("クライアントの接続を承認しました\n");
+            return httpListenerWebSocketContext.WebSocket;
+        }
+
+        /// <summary>
+        /// クライアントとのコネクションのWebSocketを受け取り、メッセージの送受信、それに伴う入退室等の作業を行う
         /// クライアントの接続ごとに1つずつこのメソッドが回る
         /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
         /// </summary>
@@ -46,42 +67,41 @@ namespace MatchingServer {
             //このメソッドで担当するプレイヤーのIDと、現在プレイヤーがいるルームのindex
             string playerID = INVAID_ID.ToString();
             int currentRoomIndex = INVAID_ID;
-            //受信中の応答無しの時間を測定する関係上、awaitは使わない
-            var getClientMessageTask = Task.Run(() => getReceiveMessageAsync(webSocket));
+            //受信中の応答無しの時間を測定する関係上、awaitで待つことはしない
+            //また別スレッドで実行しなくても良い(内部的にメッセージ取得を別メソッドで行うようにしているため)
+            var getClientMessageTask = getReceiveMessageAsync(webSocket);
             //今後同期を行うことも考え、Task.Delayでの通信遅延は行わず毎フレーム更新を行う
-            while (webSocket.State != WebSocketState.Closed && webSocket.State != WebSocketState.CloseReceived) {
-                var clientMessageData = MessageData.getBlankData();
+            while (isConnected(webSocket.State)) {
+                //受信完了していたらそのメッセージに応じた入室、退室等の処理を行う
                 if (getClientMessageTask.IsCompletedSuccessfully) {
-                    //ここで受信データをキャッシュしておかないと、この後では既に新しい待受けのタスクに変わってしまっているため、正常にメッセージを受信できないことに注意
-                    var temp = getClientMessageTask.Result;
-                    clientMessageData = JsonSerializer.Deserialize<MessageData>(temp);
                     //メッセージの受信が完了したら新たな受信待ちを開始しないと次のメッセージが受け取れないことに注意
-                    getClientMessageTask = Task.Run(() => getReceiveMessageAsync(webSocket));
-                    
+                    //また受信データをキャッシュしておかないと、新しい受信待ちタスクに入れ替えた後では古いメッセージが受信できないので注意
+                    var clientMessageData = JsonSerializer.Deserialize<MessageData>(getClientMessageTask.Result);
+                    getClientMessageTask = getReceiveMessageAsync(webSocket);
+                    //ここを非同期で実行してしまうと前回のメッセージの処理が終わらないうちに次のメッセージの処理が始まる危険性があるので注意
+                    currentRoomIndex = await runByClientMessageProgressAsync(webSocket, clientMessageData, currentRoomIndex);
+
                     //応答があった時点で応答なしの時間はリセットしておく
                     noResponseTimeStopwatch.Restart();
                 } else {
+                    //していなかったらタイムアウトしているかどうか見て、していた場合コネクションを切断する
+                    //受信していないかつタイムアウトもしていないなら何も行わない
                     if (isTimeOut(noResponseTimeStopwatch.Elapsed.TotalSeconds)) {
                         await closeAsync(webSocket, "タイムアウト", playerID);
-                        return;
-                    } else continue;
+                    }
                 }
-
-                //メッセージを受信しているならそれに応じた入室、退室等の処理を行う
-                //ここを非同期で実行してしまうと前回のメッセージの処理が終わらないうちに次のメッセージの処理が始まる危険性があるので注意
-                currentRoomIndex = runByClientMessageProgress(webSocket, clientMessageData, currentRoomIndex);
             }
         }
 
         /// <summary>
-        /// クライアントからのメッセージに応じた処理を行う
+        /// クライアントからのメッセージに応じた処理を非同期で行う
         /// TODO:もうちょっといい名前を考える
         /// </summary>
         /// <param name="webSocket"></param>
         /// <param name="messageData"></param>
         /// <param name="currentRoomIndex"></param>
         /// <returns></returns>
-        private static int runByClientMessageProgress(WebSocket webSocket, MessageData messageData, int currentRoomIndex) {
+        private static async Task<int> runByClientMessageProgressAsync(WebSocket webSocket, MessageData messageData, int currentRoomIndex) {
             switch (messageData.type_) {
                 case MessageData.Type.Join:
                     currentRoomIndex = getDefaultLobby().joinPlayer(messageData.PLAYER_ID, messageData.PLAYER_NICK_NAME, webSocket, messageData.MAX_PLAYER_COUNT);
@@ -97,32 +117,11 @@ namespace MatchingServer {
                     break;
                 case MessageData.Type.Disconnect:
                     //切断要請があり次第切断する
-                    Task.Run(() => closeAsync(webSocket, "通常終了", messageData.PLAYER_ID));
+                    await closeAsync(webSocket, "通常終了", messageData.PLAYER_ID);
                     currentRoomIndex = INVAID_ID;
                     break;
             }
             return currentRoomIndex;
-        }
-
-        /// <summary>
-        /// クライアントのアクセスを受け入れ、WebSocketを返す
-        /// </summary>
-        public static async Task<WebSocket> acceptClientConnecting() {
-            Debug.WriteLine("クライアントの接続承認の待受けに入りました");
-            var httpListenerContext = await HTTP_LISTENER.GetContextAsync();
-
-            //クライアントからのリクエストがWebSocketでないなら閉じてnullを返す
-            if (httpListenerContext.Request.IsWebSocketRequest == false) {
-                Debug.WriteLine("エラー：クライアントのリクエストがWebSocketではありません");
-                httpListenerContext.Response.StatusCode = 400;
-                httpListenerContext.Response.Close();
-                return null;
-            }
-
-            //WebSocketでレスポンスを返却
-            Debug.WriteLine("クライアントの接続を承認しました");
-            var httpListenerWebSocketContext = await httpListenerContext.AcceptWebSocketAsync(null);
-            return httpListenerWebSocketContext.WebSocket;
         }
 
         /// <summary>
@@ -209,6 +208,15 @@ namespace MatchingServer {
         /// <returns></returns>
         public static Lobby getDefaultLobby() {
             return LOBBYS.First();
+        }
+
+        /// <summary>
+        /// 渡されたWebsocketの状態を見て、接続されているかどうか返す
+        /// </summary>
+        /// <param name="state"></param>
+        /// <returns></returns>
+        private static bool isConnected(WebSocketState state) {
+            return state == WebSocketState.Open || state == WebSocketState.Connecting;
         }
     }
 }
