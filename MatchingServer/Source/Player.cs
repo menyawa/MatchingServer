@@ -68,7 +68,7 @@ namespace MatchingServer {
         /// <param name="otherPlayer"></param>
         private async Task sendPlayerDataToClientAsync(Player otherPlayer, int maxPlayerCount, MessageData.Type type) {
             //CPUなら結びついているクライアントがいないので、送らない
-            if (type_ == Type.CPU) return;
+            if (isCPU()) return;
             Debug.WriteLine($"プレイヤーID: {this.ID}にプレイヤーID: {otherPlayer.ID}が{MessageData.getMessageTypeDataTypeStr(type)}したというメッセージの送信を開始します");
 
             var messageData = new MessageData(otherPlayer.ID, otherPlayer.NICK_NAME, maxPlayerCount, type);

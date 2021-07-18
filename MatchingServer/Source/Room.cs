@@ -61,7 +61,7 @@ namespace MatchingServer {
             if (player == null) return null;
             if (PLAYERS.Count() == MAX_PLAYER_COUNT) return null;
 
-            Debug.WriteLine($"プレイヤーが入室しました ID: {player.ID}");
+            if (player.isCPU() == false) Debug.WriteLine($"プレイヤーが入室しました ID: {player.ID}");
 
             PLAYERS.Add(player);
             //満員になり次第ルームを閉じる
@@ -85,7 +85,7 @@ namespace MatchingServer {
             //渡されたPlayerがnullなら何もせず返す
             if (player == null) return null;
 
-            Debug.WriteLine($"プレイヤーが退出しました ID: {player.ID}");
+            if (player.isCPU() == false) Debug.WriteLine($"プレイヤーが退出しました ID: {player.ID}");
 
             PLAYERS.Remove(player);
             return player;
@@ -106,7 +106,7 @@ namespace MatchingServer {
         /// <returns></returns>
         public Player getHostPlayer() {
             //先頭のプレイヤー(最初に入室したプレイヤー)を常にホストとする
-            return PLAYERS.First();
+            return PLAYERS.FirstOrDefault();
         }
 
         /// <summary>
@@ -124,15 +124,24 @@ namespace MatchingServer {
         /// <summary>
         /// 指定された値で開室状況を切り替え、開室しているかを返す
         /// </summary>
-        /// <param name="changingValue"></param>
+        /// <param name="state"></param>
         /// <returns></returns>
-        public bool changeOpeningState(bool changingValue) { return openingState_ = changingValue; }
+        public bool changeOpeningState(bool state) { return openingState_ = state; }
 
         /// <summary>
         /// まだこの部屋に入れるかどうか
         /// </summary>
         /// <returns></returns>
         public bool canJoin() { return openingState_ && PLAYERS.Count() < MAX_PLAYER_COUNT; }
+
+        /// <summary>
+        /// クライアントと繋がっているプレイヤーが在室しているかどうか
+        /// </summary>
+        /// <returns></returns>
+        public bool clientPlayerRoomExists() { 
+            //CPUしか部屋にいないなら、その部屋は取っておいても意味がない
+            return PLAYERS.Exists(player => player.isCPU() == false); 
+        }
 
         public override string ToString() {
             string str = "開室・閉室： " + (openingState_ ? "開室" : "閉室") + "\n";
