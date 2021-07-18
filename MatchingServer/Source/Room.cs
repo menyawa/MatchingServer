@@ -65,7 +65,7 @@ namespace MatchingServer {
 
             PLAYERS.Add(player);
             //満員になり次第ルームを閉じる
-            if (PLAYERS.Count() == MAX_PLAYER_COUNT) openingState_ = false;
+            if (PLAYERS.Count() == MAX_PLAYER_COUNT) changeOpeningState(false);
             return player;
         }
 
@@ -73,6 +73,9 @@ namespace MatchingServer {
         /// 指定したIDのプレイヤーを退室させ、そのプレイヤーのインスタンスを返す
         /// </summary>
         public Player leave(string id) {
+            //無効なidなら何もせず返す
+            if (isCorrect(id) == false) return null;
+
             return leave(getPlayer(id));
         }
 
@@ -135,12 +138,11 @@ namespace MatchingServer {
         public bool canJoin() { return openingState_ && PLAYERS.Count() < MAX_PLAYER_COUNT; }
 
         /// <summary>
-        /// クライアントと繋がっているプレイヤーが在室しているかどうか
+        /// ルームのプレイヤーが全てCPUかどうか
         /// </summary>
         /// <returns></returns>
-        public bool clientPlayerRoomExists() { 
-            //CPUしか部屋にいないなら、その部屋は取っておいても意味がない
-            return PLAYERS.Exists(player => player.isCPU() == false); 
+        public bool allPlayerIsCPU() { 
+            return PLAYERS.Exists(player => player.isCPU() == false) == false; 
         }
 
         public override string ToString() {

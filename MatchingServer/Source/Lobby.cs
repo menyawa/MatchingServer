@@ -46,7 +46,10 @@ namespace MatchingServer {
             var player = room.getPlayer(id);
             //入室の際と同様に、退出の際にも他プレイヤーに通知する
             await player.sendMyDataToOthersAsync(room.getOtherPlayers(player), room.MAX_PLAYER_COUNT, MessageData.Type.Leave);
-            return room.leave(player);
+            player = room.leave(player);
+            //CPUしかいなくなり次第ルームを消去する
+            if (room.allPlayerIsCPU()) ROOMS.RemoveAt(roomIndex);
+            return player;
         }
 
         public override string ToString() {

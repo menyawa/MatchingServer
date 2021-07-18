@@ -21,6 +21,8 @@ namespace MatchingServer {
         private static readonly Encoding ENCODING = Encoding.UTF8;
         //無効な場合のIDの値(リセットに用いる)
         private const int INVAID_ID = -1;
+        //現在走っているクライアントとの接続のタスクのリスト
+        private static readonly List<Task> CLIENT_CONNECTING_TASK_LIST = new List<Task>();
 
         static Server() {
             //接続待ちは別で行う
@@ -162,7 +164,7 @@ namespace MatchingServer {
             //所得情報確保用の配列を準備
             var segment = new ArraySegment<byte>(buffer);
             //サーバからのレスポンス情報を取得
-            var result = await webSocket.ReceiveAsync(segment, CancellationToken.None);
+            var result = await Task.Run(() => webSocket.ReceiveAsync(segment, CancellationToken.None));
 
             if (result.MessageType == WebSocketMessageType.Close) {
                 Debug.WriteLine("エラー：エンドポイントCloseのためメッセージを取得できません、nullを返します");
@@ -202,6 +204,29 @@ namespace MatchingServer {
         /// <returns></returns>
         private static Lobby getDefaultLobby() {
             return LOBBYS.FirstOrDefault();
+        }
+        
+        /// <summary>
+        /// クライアントとの接続のタスクをリストに加える
+        /// </summary>
+        /// <param name="task"></param>
+        public static void addClientConnectingTask(Task task) {
+            CLIENT_CONNECTING_TASK_LIST.Add(task);
+        }
+
+        /// <summary>
+        /// 終了したクライアントとの接続のタスクを削除する
+        /// </summary>
+        public static void removeCompleteClientConnectingTask() {
+            CLIENT_CONNECTING_TASK_LIST.RemoveAll(task => task.IsCompleted);
+        }
+
+        /// <summary>
+        /// 現在何人のクライアントが接続しているかを取得する
+        /// </summary>
+        /// <returns></returns>
+        public static int getConnectingClientCount() {
+            return CLIENT_CONNECTING_TASK_LIST.Count;
         }
 
         /// <summary>
