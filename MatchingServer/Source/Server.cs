@@ -94,6 +94,9 @@ namespace MatchingServer {
                     }
                 }
             }
+
+            //isConnectedのループから抜けた == 接続されていないということなので、切断処理を重ねて行う必要はない(たとえクライアントアプリの終了による強制切断でも)
+            Debug.WriteLine($"プレイヤーID：{playerID}の接続を終了しました\n");
         }
 
         /// <summary>
@@ -238,7 +241,7 @@ namespace MatchingServer {
         /// <returns></returns>
         private static async Task closeAsync(WebSocket webSocket, string statusDescription, string playerID) {
             Debug.WriteLine($"クライアントとの接続を終了します 理由： {statusDescription}");
-            Debug.WriteLine($"該当プレイヤーID: {playerID}\n");
+            Debug.WriteLine($"該当プレイヤーID: {playerID}");
             await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
         }
     }
