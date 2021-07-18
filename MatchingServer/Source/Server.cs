@@ -104,12 +104,12 @@ namespace MatchingServer {
         private static async Task<int> runByClientMessageProgressAsync(WebSocket webSocket, MessageData messageData, int currentRoomIndex) {
             switch (messageData.type_) {
                 case MessageData.Type.Join:
-                    currentRoomIndex = getDefaultLobby().joinPlayerAsync(messageData.PLAYER_ID, messageData.PLAYER_NICK_NAME, webSocket, messageData.MAX_PLAYER_COUNT);
+                    currentRoomIndex = await getDefaultLobby().joinPlayerAsync(messageData.PLAYER_ID, messageData.PLAYER_NICK_NAME, webSocket, messageData.MAX_PLAYER_COUNT);
                     break;
 
                 case MessageData.Type.Leave:
                     //ルームに入る→退室するという順番でないと、当然ながらエラーが出るので注意
-                    getDefaultLobby().leavePlayerAsync(messageData.PLAYER_ID, currentRoomIndex);
+                    await getDefaultLobby().leavePlayerAsync(messageData.PLAYER_ID, currentRoomIndex);
                     currentRoomIndex = INVAID_ID;
                     break;
 
