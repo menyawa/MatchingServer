@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
+using System.Threading.Tasks;
 
 namespace MatchingServer {
     /// <summary>
@@ -16,7 +17,7 @@ namespace MatchingServer {
         /// プレイヤーをロビーのいずれかのルームに加入させ、入ったルームのインデックスを返す
         /// </summary>
         /// <returns></returns>
-        public int joinPlayer(string id, string nickName, WebSocket webSocket, int maxPlayerCount) {
+        public async Task<int> joinPlayerAsync(string id, string nickName, WebSocket webSocket, int maxPlayerCount) {
             //希望した対戦人数で空いているルームを見つけ次第入れる
             for (int index = 0; index < ROOMS.Count(); index++) {
                 var room = ROOMS[index];
@@ -24,7 +25,7 @@ namespace MatchingServer {
                     var player = room.join(id, nickName, webSocket);
                     //ルームに自身が入ったことを他プレイヤーに通知する
                     //こうすることでルームに自身が入った場合・他プレイヤーがルームに入った場合共に対応可能
-                    player.sendMyDataToOthers(room.getOtherPlayers(player), maxPlayerCount, MessageData.Type.Join);
+                    await player.sendMyDataToOthersAsync(room.getOtherPlayers(player), maxPlayerCount, MessageData.Type.Join);
                     return index;
                 }
             }
@@ -40,11 +41,11 @@ namespace MatchingServer {
         /// </summary>
         /// <param name="id"></param>
         /// <param name="roomIndex"></param>
-        public Player leavePlayer(string id, int roomIndex) {
+        public async Task<Player> leavePlayerAsync(string id, int roomIndex) {
             var room = ROOMS[roomIndex];
             var player = room.getPlayer(id);
             //入室の際と同様に、退出の際にも他プレイヤーに通知する
-            player.sendMyDataToOthers(room.getOtherPlayers(player), room.MAX_PLAYER_COUNT, MessageData.Type.Leave);
+            await player.sendMyDataToOthersAsync(room.getOtherPlayers(player), room.MAX_PLAYER_COUNT, MessageData.Type.Leave);
             return room.leave(player);
         }
 

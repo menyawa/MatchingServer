@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Net.WebSockets;
+using System.Threading.Tasks;
 
 namespace MatchingServer {
     /// <summary>
@@ -49,22 +51,29 @@ namespace MatchingServer {
         }
 
         /// <summary>
-        /// 指定された他のプレイヤーに、自身のプレイヤーデータを送信させる
+        /// 指定された他のプレイヤーに、自身のプレイヤーデータと、入室・退室等の情報を送信させる
         /// </summary>
         /// <param name="otherPlayers"></param>
-        public void sendMyDataToOthers(Player[] otherPlayers, int maxPlayerCount, MessageData.Type type) {
-            foreach (var player in otherPlayers) player.sendPlayerDataToClient(this, maxPlayerCount, type);
+        public async Task sendMyDataToOthersAsync(Player[] otherPlayers, int maxPlayerCount, MessageData.Type type) {
+            foreach (var otherPlayer in otherPlayers) {
+                await otherPlayer.sendPlayerDataToClientAsync(this, maxPlayerCount, type);
+            }
+            //見やすいよう最後に改行を入れる
+            Debug.WriteLine("\n");
         }
 
         /// <summary>
         /// 結びついているクライアントに渡されたプレイヤーのデータを渡す
         /// </summary>
-        /// <param name="player"></param>
-        public void sendPlayerDataToClient(Player player, int maxPlayerCount, MessageData.Type type) {
+        /// <param name="otherPlayer"></param>
+        private async Task sendPlayerDataToClientAsync(Player otherPlayer, int maxPlayerCount, MessageData.Type type) {
             //CPUなら結びついているクライアントがいないので、送らない
             if (type_ == Type.CPU) return;
+            Debug.WriteLine($"プレイヤーID: {this.ID}にプレイヤーID: {otherPlayer.ID}が{MessageData.getMessageTypeDataTypeStr(type)}したというメッセージの送信を開始します");
 
-            Server.sendPlayerDataToClient(WEBSOCKET, player, maxPlayerCount, type);
+            var messageData = new MessageData(otherPlayer.ID, otherPlayer.NICK_NAME, maxPlayerCount, type);
+            await Server.sendMessageAsync(WEBSOCKET, messageData);
+            Debug.WriteLine($"プレイヤーID: {this.ID}にプレイヤーID: {otherPlayer.ID}が{MessageData.getMessageTypeDataTypeStr(type)}したというメッセージの送信に成功しました");
         }
 
         public override string ToString() {

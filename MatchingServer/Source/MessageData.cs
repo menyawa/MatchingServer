@@ -91,5 +91,20 @@ namespace MatchingServer {
         public static MessageData getBlankData() {
             return new MessageData("Blank", "Blank", -1, Type.PeriodicReport);
         }
+
+        /// <summary>
+        /// 渡されたメッセージタイプに対応する文字列を取得する
+        /// </summary>
+        /// <returns></returns>
+        public static string getMessageTypeDataTypeStr(Type type) {
+            switch (type) {
+                case Type.Join: return "入室";
+                case Type.Leave: return "退室";
+                case Type.PeriodicReport: return "定時報告";
+                case Type.Disconnect: return "切断";
+                case Type.TimeOut: return "タイムアウト";
+                default: return null;
+            }
+        }
     }
 }

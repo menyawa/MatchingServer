@@ -104,12 +104,12 @@ namespace MatchingServer {
         private static async Task<int> runByClientMessageProgressAsync(WebSocket webSocket, MessageData messageData, int currentRoomIndex) {
             switch (messageData.type_) {
                 case MessageData.Type.Join:
-                    currentRoomIndex = getDefaultLobby().joinPlayer(messageData.PLAYER_ID, messageData.PLAYER_NICK_NAME, webSocket, messageData.MAX_PLAYER_COUNT);
+                    currentRoomIndex = getDefaultLobby().joinPlayerAsync(messageData.PLAYER_ID, messageData.PLAYER_NICK_NAME, webSocket, messageData.MAX_PLAYER_COUNT);
                     break;
 
                 case MessageData.Type.Leave:
                     //ルームに入る→退室するという順番でないと、当然ながらエラーが出るので注意
-                    getDefaultLobby().leavePlayer(messageData.PLAYER_ID, currentRoomIndex);
+                    getDefaultLobby().leavePlayerAsync(messageData.PLAYER_ID, currentRoomIndex);
                     currentRoomIndex = INVAID_ID;
                     break;
 
@@ -137,6 +137,16 @@ namespace MatchingServer {
             var segment = new ArraySegment<byte>(buffer);
             //awaitを付けておかないと正常に送信できないので注意
             await webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// 指定されたWebsocketで、渡されたMessageDataを文字列として送信する
+        /// </summary>
+        /// <param name="webSocket"></param>
+        /// <param name="message"></param>
+        /// <returns></returns>
+        public static async Task sendMessageAsync(WebSocket webSocket, MessageData data) {
+            await sendMessageAsync(webSocket, data.ToString());
         }
 
         /// <summary>
@@ -170,14 +180,12 @@ namespace MatchingServer {
         }
 
         /// <summary>
-        /// 渡されたWebSocketのインスタンスを通して、クライアントにプレイヤーのデータを送信する
+        /// 渡されたWebsocketの状態を見て、接続されているかどうか返す
         /// </summary>
-        /// <param name="webSocket"></param>
-        /// <param name="player"></param>
-        public static void sendPlayerDataToClient(WebSocket webSocket, Player player, int maxPlayerCount, MessageData.Type type) {
-            Debug.WriteLine("プレイヤーデータを送ります");
-            var messageData = new MessageData(player.ID, player.NICK_NAME, maxPlayerCount, type);
-            Task.Run(() => sendMessageAsync(webSocket, JsonSerializer.Serialize(messageData)));
+        /// <param name="state"></param>
+        /// <returns></returns>
+        private static bool isConnected(WebSocketState state) {
+            return state == WebSocketState.Open || state == WebSocketState.Connecting;
         }
 
         /// <summary>
@@ -187,6 +195,14 @@ namespace MatchingServer {
         /// <returns></returns>
         private static bool isTimeOut(double noResponceTime) {
             return noResponceTime >= 10.0;
+        }
+
+        /// <summary>
+        /// デフォルトのロビーを返す
+        /// </summary>
+        /// <returns></returns>
+        public static Lobby getDefaultLobby() {
+            return LOBBYS.First();
         }
 
         /// <summary>
@@ -200,23 +216,6 @@ namespace MatchingServer {
             Debug.WriteLine($"クライアントとの接続を終了します 理由： {statusDescription}");
             Debug.WriteLine($"該当プレイヤーID: {playerID}");
             await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
-        }
-
-        /// <summary>
-        /// デフォルトのロビーを返す
-        /// </summary>
-        /// <returns></returns>
-        public static Lobby getDefaultLobby() {
-            return LOBBYS.First();
-        }
-
-        /// <summary>
-        /// 渡されたWebsocketの状態を見て、接続されているかどうか返す
-        /// </summary>
-        /// <param name="state"></param>
-        /// <returns></returns>
-        private static bool isConnected(WebSocketState state) {
-            return state == WebSocketState.Open || state == WebSocketState.Connecting;
         }
     }
 }
