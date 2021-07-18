@@ -52,24 +52,24 @@ namespace MatchingServer {
         }
 
         /// <summary>
-        /// クライアントとのコネクションのWebSocketを受け取り、メッセージの送受信、それに伴う入退室等の作業を行う
+        /// クライアントとのコネクションのWebSocketを受け取り、メッセージの送受信、それに伴う入退室等の対応を行う
         /// クライアントの接続ごとに1つずつこのメソッドが回る
         /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
         /// </summary>
         /// <returns></returns>
-        public static async Task RunAsync(WebSocket webSocket) {
-            Debug.WriteLine("メッセージの送受信開始");
+        public static async Task supportMessageAsync(WebSocket webSocket) {
+            Debug.WriteLine("メッセージの送受信・対応を開始します");
 
             //応答なしの時間を測るため、ストップウォッチを用意して開始
             var noResponseTimeStopwatch = new Stopwatch();
             noResponseTimeStopwatch.Start();
-
             //このメソッドで担当するプレイヤーのIDと、現在プレイヤーがいるルームのindex
             string playerID = INVAID_ID.ToString();
             int currentRoomIndex = INVAID_ID;
             //受信中の応答無しの時間を測定する関係上、awaitで待つことはしない
             //また別スレッドで実行しなくても良い(内部的にメッセージ取得を別メソッドで行うようにしているため)
             var getClientMessageTask = getReceiveMessageAsync(webSocket);
+
             //今後同期を行うことも考え、Task.Delayでの通信遅延は行わず毎フレーム更新を行う
             while (isConnected(webSocket.State)) {
                 //受信完了していたらそのメッセージに応じた入室、退室等の処理を行う
@@ -80,6 +80,7 @@ namespace MatchingServer {
                     getClientMessageTask = getReceiveMessageAsync(webSocket);
                     //ここを非同期で実行してしまうと前回のメッセージの処理が終わらないうちに次のメッセージの処理が始まる危険性があるので注意
                     currentRoomIndex = await runByClientMessageProgressAsync(webSocket, clientMessageData, currentRoomIndex);
+                    playerID = clientMessageData.PLAYER_ID;
 
                     //応答があった時点で応答なしの時間はリセットしておく
                     noResponseTimeStopwatch.Restart();
@@ -133,10 +134,8 @@ namespace MatchingServer {
         private static async Task sendMessageAsync(WebSocket webSocket, string message) {
             Debug.WriteLine($"クライアントアプリにメッセージを送信しました： {message}");
             //文字列をバイト列に変換して送る
-            var buffer = ENCODING.GetBytes(message);
-            var segment = new ArraySegment<byte>(buffer);
-            //awaitを付けておかないと正常に送信できないので注意
-            await webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None);
+            var segment = new ArraySegment<byte>(ENCODING.GetBytes(message));
+            await Task.Run(() => webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None));
         }
 
         /// <summary>
@@ -201,8 +200,8 @@ namespace MatchingServer {
         /// デフォルトのロビーを返す
         /// </summary>
         /// <returns></returns>
-        public static Lobby getDefaultLobby() {
-            return LOBBYS.First();
+        private static Lobby getDefaultLobby() {
+            return LOBBYS.FirstOrDefault();
         }
 
         /// <summary>
@@ -214,7 +213,7 @@ namespace MatchingServer {
         /// <returns></returns>
         private static async Task closeAsync(WebSocket webSocket, string statusDescription, string playerID) {
             Debug.WriteLine($"クライアントとの接続を終了します 理由： {statusDescription}");
-            Debug.WriteLine($"該当プレイヤーID: {playerID}");
+            Debug.WriteLine($"該当プレイヤーID: {playerID}\n");
             await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
         }
     }

@@ -14,12 +14,12 @@ namespace MatchingServer {
         public readonly string NICK_NAME;
 
         //実際に操作されるクライアントか、CPUなのか
-        public enum Type {
+        private enum Type {
             Client, 
             CPU
         }
         //途中で切断されてCPUに切り替わる可能性があることに注意
-        public Type type_;
+        private Type type_;
 
         //クライアントと結びついているWEBSOCKET
         private readonly WebSocket WEBSOCKET;
@@ -82,6 +82,21 @@ namespace MatchingServer {
             str += type_ == Type.Client ? "参加プレイヤー\n" : "CPU\n";
 
             return str;
+        }
+
+        /// <summary>
+        /// CPUかどうか
+        /// </summary>
+        /// <returns></returns>
+        public bool isCPU() {
+            return type_ == Type.CPU;
+        }
+
+        /// <summary>
+        /// 切断時、プレイヤーをCPUに切り替える
+        /// </summary>
+        public void switchTypeByDisconnect() {
+            type_ = Type.CPU;
         }
     }
 }

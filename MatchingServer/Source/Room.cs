@@ -10,9 +10,8 @@ namespace MatchingServer {
     sealed class Room : ElementsBase {
         //現在部屋にいるプレイヤー
         private readonly List<Player> PLAYERS = new List<Player>();
-
         //開いているかどうか
-        private bool isOpened_ = true;
+        private bool openingState_ = true;
         //最大何人まで入室できるのか
         public readonly int MAX_PLAYER_COUNT;
 
@@ -25,6 +24,8 @@ namespace MatchingServer {
 
         /// <summary>
         /// 作成と同時に1人入室する際のコンストラクタ
+        /// 指定されたプレイヤーを入室させ、渡された人数分CPUを入れる
+        /// 新しいプレイヤーを受け入れる空いているルームが無かった場合に新しい部屋を作って入室するため複数人入室することはありえないことに注意
         /// </summary>
         /// <param name="id"></param>
         /// <param name="nickName"></param>
@@ -64,7 +65,7 @@ namespace MatchingServer {
 
             PLAYERS.Add(player);
             //満員になり次第ルームを閉じる
-            if (PLAYERS.Count() == MAX_PLAYER_COUNT) isOpened_ = false;
+            if (PLAYERS.Count() == MAX_PLAYER_COUNT) openingState_ = false;
             return player;
         }
 
@@ -125,16 +126,16 @@ namespace MatchingServer {
         /// </summary>
         /// <param name="changingValue"></param>
         /// <returns></returns>
-        public bool changeOpen(bool changingValue) { return isOpened_ = changingValue; }
+        public bool changeOpeningState(bool changingValue) { return openingState_ = changingValue; }
 
         /// <summary>
         /// まだこの部屋に入れるかどうか
         /// </summary>
         /// <returns></returns>
-        public bool canJoin() { return isOpened_ && PLAYERS.Count() < MAX_PLAYER_COUNT; }
+        public bool canJoin() { return openingState_ && PLAYERS.Count() < MAX_PLAYER_COUNT; }
 
         public override string ToString() {
-            string str = "開室・閉室： " + (isOpened_ ? "開室" : "閉室") + "\n";
+            string str = "開室・閉室： " + (openingState_ ? "開室" : "閉室") + "\n";
             str += $"最大収容人数： {MAX_PLAYER_COUNT}\n";
             str += $"現在のプレイヤー人数(CPUも含む)： {PLAYERS.Count()}\n";
             for (int index = 0; index < PLAYERS.Count(); index++) {
