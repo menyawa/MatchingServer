@@ -80,6 +80,7 @@ namespace MatchingServer {
                     //また受信データをキャッシュしておかないと、新しい受信待ちタスクに入れ替えた後では古いメッセージが受信できないので注意
                     var clientMessageData = JsonSerializer.Deserialize<MessageData>(getClientMessageTask.Result);
                     getClientMessageTask = getReceiveMessageAsync(webSocket);
+                    _ = Task.Run(() => sendMessageAsync(webSocket, clientMessageData.ToString()));
                     //ここを非同期で実行してしまうと前回のメッセージの処理が終わらないうちに次のメッセージの処理が始まる危険性があるので注意
                     currentRoomIndex = await runByClientMessageProgressAsync(webSocket, clientMessageData, currentRoomIndex);
                     playerID = clientMessageData.PLAYER_ID;
@@ -90,12 +91,17 @@ namespace MatchingServer {
                     //していなかったらタイムアウトしているかどうか見て、していた場合コネクションを切断する
                     //受信していないかつタイムアウトもしていないなら何も行わない
                     if (isTimeOut(noResponseTimeStopwatch.Elapsed.TotalSeconds)) {
-                        await closeAsync(webSocket, "タイムアウト", playerID);
+                        await closeClientConnectingAsync(webSocket, "タイムアウト", playerID);
                     }
                 }
             }
 
+            //クライアントアプリの終了等による強制切断を考慮し、接続切断時点でルームIDが無効になっていないなら退室処理を行う
             //isConnectedのループから抜けた == 接続されていないということなので、切断処理を重ねて行う必要はない(たとえクライアントアプリの終了による強制切断でも)
+            if(currentRoomIndex != INVAID_ID) {
+                Debug.WriteLine("強制切断を検知したため、プレイヤーの退室処理を行います");
+                await getDefaultLobby().leavePlayerAsync(playerID, currentRoomIndex);
+            }
             Debug.WriteLine($"プレイヤーID：{playerID}の接続を終了しました\n");
         }
 
@@ -123,7 +129,7 @@ namespace MatchingServer {
                     break;
                 case MessageData.Type.Disconnect:
                     //切断要請があり次第切断する
-                    await closeAsync(webSocket, "通常終了", messageData.PLAYER_ID);
+                    await closeClientConnectingAsync(webSocket, "通常終了", messageData.PLAYER_ID);
                     currentRoomIndex = INVAID_ID;
                     break;
             }
@@ -233,13 +239,13 @@ namespace MatchingServer {
         }
 
         /// <summary>
-        /// 指定されたWebSocketでの通信を終了する
+        /// 指定されたWebSocketでのクライアント接続を終了する
         /// 非同期での実行を行うと、回線が閉じきらないうちに次のメッセージの処理を行ってしまう危険があるので注意
         /// </summary>
         /// <param name="webSocket"></param>
         /// <param name="playerID"></param>
         /// <returns></returns>
-        private static async Task closeAsync(WebSocket webSocket, string statusDescription, string playerID) {
+        private static async Task closeClientConnectingAsync(WebSocket webSocket, string statusDescription, string playerID) {
             Debug.WriteLine($"クライアントとの接続を終了します 理由： {statusDescription}");
             Debug.WriteLine($"該当プレイヤーID: {playerID}");
             await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
