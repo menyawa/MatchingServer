@@ -80,7 +80,6 @@ namespace MatchingServer {
                     //また受信データをキャッシュしておかないと、新しい受信待ちタスクに入れ替えた後では古いメッセージが受信できないので注意
                     var clientMessageData = JsonSerializer.Deserialize<MessageData>(getClientMessageTask.Result);
                     getClientMessageTask = getReceiveMessageAsync(webSocket);
-                    _ = Task.Run(() => sendMessageAsync(webSocket, clientMessageData.ToString()));
                     //ここを非同期で実行してしまうと前回のメッセージの処理が終わらないうちに次のメッセージの処理が始まる危険性があるので注意
                     currentRoomIndex = await runByClientMessageProgressAsync(webSocket, clientMessageData, currentRoomIndex);
                     playerID = clientMessageData.PLAYER_ID;
@@ -98,7 +97,7 @@ namespace MatchingServer {
 
             //クライアントアプリの終了等による強制切断を考慮し、接続切断時点でルームIDが無効になっていないなら退室処理を行う
             //isConnectedのループから抜けた == 接続されていないということなので、切断処理を重ねて行う必要はない(たとえクライアントアプリの終了による強制切断でも)
-            if(currentRoomIndex != INVAID_ID) {
+            if (currentRoomIndex != INVAID_ID) {
                 Debug.WriteLine("強制切断を検知したため、プレイヤーの退室処理を行います");
                 await getDefaultLobby().leavePlayerAsync(playerID, currentRoomIndex);
             }
@@ -137,16 +136,24 @@ namespace MatchingServer {
         }
 
         /// <summary>
-        /// 指定されたWebsocketで、メッセージ(文字列)を送信する
+        /// 指定されたWebsocketで、メッセージ(文字列)を送信し、送信成功したかを返す
         /// </summary>
         /// <param name="webSocket"></param>
         /// <param name="message"></param>
         /// <returns></returns>
-        private static async Task sendMessageAsync(WebSocket webSocket, string message) {
-            Debug.WriteLine($"クライアントアプリにメッセージを送信しました： {message}");
+        private static async Task<bool> sendMessageAsync(WebSocket webSocket, string message) {
+            Debug.WriteLine("クライアントアプリにメッセージを送信します");
             //文字列をバイト列に変換して送る
             var segment = new ArraySegment<byte>(ENCODING.GetBytes(message));
-            await Task.Run(() => webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None));
+            try {
+                await Task.Run(() => webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None));
+            } catch (WebSocketException exception) {
+                Debug.WriteLine("WebSocketExceptionを検知しました(恐らく、クライアントアプリが強制的に切断しました)");
+                Debug.WriteLine("送信失敗しました");
+                return false;
+            }
+            Debug.WriteLine($"クライアントアプリにメッセージを送信成功しました： {message}");
+            return true;
         }
 
         /// <summary>
@@ -172,20 +179,25 @@ namespace MatchingServer {
             var buffer = new byte[1024];
             //所得情報確保用の配列を準備
             var segment = new ArraySegment<byte>(buffer);
-            //サーバからのレスポンス情報を取得
-            var result = await Task.Run(() => webSocket.ReceiveAsync(segment, CancellationToken.None));
+            try {
+                //サーバからのレスポンス情報を取得
+                var result = await Task.Run(() => webSocket.ReceiveAsync(segment, CancellationToken.None));
 
-            if (result.MessageType == WebSocketMessageType.Close) {
-                Debug.WriteLine("エラー：エンドポイントCloseのためメッセージを取得できません、nullを返します");
+                if (result.MessageType == WebSocketMessageType.Close) {
+                    Debug.WriteLine("エラー：エンドポイントCloseのためメッセージを取得できません、nullを返します");
+                    return null;
+                }
+                if (result.MessageType == WebSocketMessageType.Binary) {
+                    Debug.WriteLine("エラー：送られてきたメッセージがバイナリのため取得できません、nullを返します");
+                    return null;
+                }
+            } catch (WebSocketException exception) {
+                Debug.WriteLine("WebSocketExceptionを検知しました(恐らく、クライアントアプリが強制的に切断しました)");
+                Debug.WriteLine("受信失敗しました(nullを返します)");
                 return null;
             }
-            if (result.MessageType == WebSocketMessageType.Binary) {
-                Debug.WriteLine("エラー：送られてきたメッセージがバイナリのため取得できません、nullを返します");
-                return null;
-            }
-
             string messageStr = ENCODING.GetString(buffer, 0, result.Count);
-            Debug.WriteLine($"メッセージを取得しました： {messageStr}");
+            Debug.WriteLine($"メッセージ取得に成功しました： {messageStr}");
             return messageStr;
         }
 
@@ -204,7 +216,7 @@ namespace MatchingServer {
         /// <param name="noResponceTime"></param>
         /// <returns></returns>
         private static bool isTimeOut(double noResponceTime) {
-            return noResponceTime >= 10.0;
+            return noResponceTime >= 50.0;
         }
 
         /// <summary>
@@ -214,7 +226,7 @@ namespace MatchingServer {
         private static Lobby getDefaultLobby() {
             return LOBBYS.FirstOrDefault();
         }
-        
+
         /// <summary>
         /// クライアントとの接続のタスクをリストに加える
         /// </summary>
