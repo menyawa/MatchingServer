@@ -42,7 +42,7 @@ namespace MatchingServer {
 
         /// <summary>
         /// 指定したIDのプレイヤーを入室させ、そのプレイヤーのインスタンスを返す
-        /// 発生する可能性のある例外：ArgumentException、ArgumentNullException
+        /// 発生する可能性のある例外：ArgumentException
         /// </summary>
         /// <param name="id"></param>
         /// <param name="nickName"></param>
@@ -53,7 +53,13 @@ namespace MatchingServer {
                 throw new ArgumentException();
             }
 
-            return join(Player.createClient(id, nickName, webSocket));
+            try {
+                return join(Player.createClient(id, nickName, webSocket));
+            } catch (ArgumentNullException) {
+                Debug.WriteLine("エラー：ニックネーム、もしくはwebSocketがnullのため、プレイヤーを入室させることができません");
+                Debug.WriteLine("nullを返します");
+                return null;
+            }
         }
 
         /// <summary>

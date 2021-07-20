@@ -66,11 +66,19 @@ namespace MatchingServer {
 
         /// <summary>
         /// 指定された他のプレイヤーに、自身のプレイヤーデータと、入室・退室等の情報を送信させる
+        /// 発生する可能性のある例外：ArgumentNullException
         /// </summary>
         /// <param name="otherPlayers"></param>
         public async Task sendMyDataToOthersAsync(Player[] otherPlayers, int maxPlayerCount, MessageData.Type type) {
+            if(otherPlayers == null) {
+                Debug.WriteLine("エラー：otherPlayersがnullのため、メッセージを送信できません");
+                throw new ArgumentNullException();
+            }
+
             foreach (var otherPlayer in otherPlayers) {
+                //thisは必ず中身があるためArgumentNullExceptionが発生する危険はない
                 await otherPlayer.sendOtherDataToClientAsync(this, maxPlayerCount, type);
+
             }
             //見やすいよう最後に改行を入れる
             Debug.WriteLine("\n");
@@ -84,7 +92,7 @@ namespace MatchingServer {
         private async Task sendOtherDataToClientAsync(Player otherPlayer, int maxPlayerCount, MessageData.Type type) {
             //CPUなら結びついているクライアントがいないので、送らない
             if (isCPU()) return;
-            if(otherPlayer == null) {
+            if (otherPlayer == null) {
                 Debug.WriteLine("渡されたプレイヤーがnullのため、送信できません");
                 throw new ArgumentNullException();
             }
