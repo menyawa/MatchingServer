@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Linq;
 using System.Net.WebSockets;
+using System;
 
 namespace MatchingServer {
     /// <summary>
@@ -41,65 +42,97 @@ namespace MatchingServer {
 
         /// <summary>
         /// 指定したIDのプレイヤーを入室させ、そのプレイヤーのインスタンスを返す
+        /// 発生する可能性のある例外：ArgumentException
         /// </summary>
         /// <param name="id"></param>
         /// <param name="nickName"></param>
         public Player join(string id, string nickName, WebSocket webSocket) {
             //無効なidなら何もせず返す
-            if (isCorrect(id) == false) return null;
+            if (isCorrect(id) == false) {
+                Debug.WriteLine("エラー：無効なIDのため、入室処理が行えません\n");
+                throw new ArgumentException();
+            }
 
             return join(Player.createClient(id, nickName, webSocket));
         }
 
         /// <summary>
         /// 指定したプレイヤーを入室させ、そのプレイヤーのインスタンスを返す
+        /// 発生する可能性のある例外：ArgumentNullException、InvalidOperationException
         /// </summary>
         /// <param name="player"></param>
         /// <returns></returns>
         public Player join(Player player) {
             //渡されたPlayerがnull、または既に満員なら何もせず返す
-            if (player == null) return null;
-            if (PLAYERS.Count() == MAX_PLAYER_COUNT) return null;
+            if (player == null) {
+                Debug.WriteLine("エラー：渡されたPlayerのインスタンスがnullのため、入室処理が行なえません");
+                throw new ArgumentNullException();
+            }
+            if (PLAYERS.Count() == MAX_PLAYER_COUNT) {
+                Debug.WriteLine("エラー：既にルームが満室のため、入室処理が行なえません");
+                throw new InvalidOperationException();
+            }
 
-            if (player.isCPU() == false) Debug.WriteLine($"プレイヤーが入室しました ID: {player.ID}");
+            if (player.isCPU() == false) Debug.WriteLine($"プレイヤーが入室しました ID: {player.ID}\n");
 
             PLAYERS.Add(player);
             //満員になり次第ルームを閉じる
-            if (PLAYERS.Count() == MAX_PLAYER_COUNT) changeOpeningState(false);
+            if (PLAYERS.Count() == MAX_PLAYER_COUNT) {
+                Debug.WriteLine("満員になったため、ルームを閉じます\n");
+                changeOpeningState(false);
+            }
             return player;
         }
 
         /// <summary>
         /// 指定したIDのプレイヤーを退室させ、そのプレイヤーのインスタンスを返す
+        /// 発生する可能性のある例外：ArgumentException
         /// </summary>
         public Player leave(string id) {
             //無効なidなら何もせず返す
-            if (isCorrect(id) == false) return null;
+            if (isCorrect(id) == false) {
+                Debug.WriteLine("エラー：無効なIDのため、退室処理が行なえません\n");
+                throw new ArgumentException();
+            }
 
             return leave(getPlayer(id));
         }
 
         /// <summary>
         /// 指定したプレイヤーを退室させ、そのプレイヤーのインスタンスを返す
+        /// 発生する可能性のある例外：ArgumentNullException、ArgumentException
         /// </summary>
         /// <param name="player"></param>
         /// <returns></returns>
         public Player leave(Player player) {
             //渡されたPlayerがnullなら何もせず返す
-            if (player == null) return null;
+            if (player == null) {
+                Debug.WriteLine("エラー：Playerのインスタンスがnullのため、退室処理が行なえません");
+                throw new ArgumentNullException();
+            } 
+            bool result = PLAYERS.Remove(player);
+            if(result == false) {
+                Debug.WriteLine("エラー：PlayerのインスタンスのIDがルームにいるプレイヤーのIDと一致しないため、退室処理が行なえません");
+                throw new ArgumentException();
+            }
 
             if (player.isCPU() == false) Debug.WriteLine($"プレイヤーが退出しました ID: {player.ID}");
 
-            PLAYERS.Remove(player);
             return player;
         }
 
         /// <summary>
         /// 指定されたプレイヤー以外のプレイヤーを取得する
+        /// 発生する可能性のある例外：ArgumentNullException
         /// </summary>
         /// <param name="myPlayer"></param>
         /// <returns></returns>
         public Player[] getOtherPlayers(Player myPlayer) {
+            if(myPlayer == null) {
+                Debug.WriteLine("エラー：渡されたPlayerがnullのため、他プレイヤーを取得できません");
+                throw new ArgumentNullException();
+            }
+
             return PLAYERS.Where(player => player != myPlayer).ToArray();
         }
 
@@ -114,14 +147,23 @@ namespace MatchingServer {
 
         /// <summary>
         /// 指定されたIDのプレイヤーを返す
+        /// 発生する可能性のある例外：ArgumentExcepition
         /// </summary>
         /// <param name="targetID"></param>
         /// <returns></returns>
         public Player getPlayer(string targetID) {
             //有効なIDでないならnullを返す
-            if (isCorrect(targetID) == false) return null;
+            if (isCorrect(targetID) == false) {
+                Debug.WriteLine("エラー：渡されたIDが無効なIDのため、プレイヤーを取得できません");
+                throw new ArgumentException();
+            }
+            var target = PLAYERS.Find(player => player.ID == targetID);
+            if(target == null) {
+                Debug.WriteLine("エラー：渡されたIDに一致するプレイヤーが見つかりませんでした");
+                throw new ArgumentException();
+            }
 
-            return PLAYERS.Find(player => player.ID == targetID);
+            return target;
         }
 
         /// <summary>

@@ -21,7 +21,7 @@ namespace MatchingServer {
             //希望した対戦人数で空いているルームを見つけ次第入れる
             for (int index = 0; index < ROOMS.Count(); index++) {
                 var room = ROOMS[index];
-                if(room.canJoin() && room.MAX_PLAYER_COUNT == maxPlayerCount) {
+                if (room.canJoin() && room.MAX_PLAYER_COUNT == maxPlayerCount) {
                     var player = room.join(id, nickName, webSocket);
                     //ルームに自身が入ったことを他プレイヤーに通知する
                     //こうすることでルームに自身が入った場合・他プレイヤーがルームに入った場合共に対応可能
@@ -43,10 +43,9 @@ namespace MatchingServer {
         /// <param name="roomIndex"></param>
         public async Task<Player> leavePlayerAsync(string id, int roomIndex) {
             var room = ROOMS[roomIndex];
-            var player = room.getPlayer(id);
             //入室の際と同様に、退出の際にも他プレイヤーに通知する
+            var player = room.leave(id);
             await player.sendMyDataToOthersAsync(room.getOtherPlayers(player), room.MAX_PLAYER_COUNT, MessageData.Type.Leave);
-            player = room.leave(player);
             //CPUしかいなくなり次第ルームを消去する
             if (room.allPlayerIsCPU()) ROOMS.RemoveAt(roomIndex);
             return player;
@@ -54,7 +53,7 @@ namespace MatchingServer {
 
         public override string ToString() {
             string str = $"現在のルーム数： {ROOMS.Count()}\n";
-            for(int index = 0; index < ROOMS.Count(); index++) {
+            for (int index = 0; index < ROOMS.Count(); index++) {
                 //ルーム番号は1から始まることに注意
                 //またルーム間は2行開ける(プレイヤーの情報間の空行はは1行なので、それとの区別の意も込めて)
                 str += $"ルーム{index + 1}\n";
