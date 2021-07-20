@@ -42,7 +42,7 @@ namespace MatchingServer {
 
         /// <summary>
         /// 指定したIDのプレイヤーを入室させ、そのプレイヤーのインスタンスを返す
-        /// 発生する可能性のある例外：ArgumentException
+        /// 発生する可能性のある例外：ArgumentException、ArgumentNullException
         /// </summary>
         /// <param name="id"></param>
         /// <param name="nickName"></param>

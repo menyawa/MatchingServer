@@ -138,7 +138,7 @@ namespace MatchingServer {
         }
 
         /// <summary>
-        /// 指定されたWebsocketで、メッセージ(文字列)を送信し、送信成功したかを返す
+        /// 指定されたWebsocketで、メッセージ(文字列)を送信し、送信成功したかどうかを返す
         /// </summary>
         /// <param name="webSocket"></param>
         /// <param name="message"></param>
@@ -159,13 +159,13 @@ namespace MatchingServer {
         }
 
         /// <summary>
-        /// 指定されたWebsocketで、渡されたMessageDataを文字列として送信する
+        /// 指定されたWebsocketで、渡されたMessageDataを文字列として送信し、送信成功したかどうかを返す
         /// </summary>
         /// <param name="webSocket"></param>
         /// <param name="message"></param>
         /// <returns></returns>
-        public static async Task sendMessageAsync(WebSocket webSocket, MessageData data) {
-            await sendMessageAsync(webSocket, data.ToString());
+        public static async Task<bool> sendMessageAsync(WebSocket webSocket, MessageData data) {
+            return await sendMessageAsync(webSocket, data.ToString());
         }
 
         /// <summary>

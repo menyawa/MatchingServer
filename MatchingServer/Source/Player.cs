@@ -15,7 +15,7 @@ namespace MatchingServer {
 
         //実際に操作されるクライアントか、CPUなのか
         private enum Type {
-            Client, 
+            Client,
             CPU
         }
         //途中で切断されてCPUに切り替わる可能性があることに注意
@@ -33,11 +33,25 @@ namespace MatchingServer {
 
         /// <summary>
         /// 指定されたID、ニックネームのクライアントのプレイヤーを生成して返す
+        /// 発生する可能性のある例外：ArgumentException、ArgumentNullException
         /// </summary>
         /// <param name="id"></param>
         /// <param name="nickName"></param>
         /// <returns></returns>
         public static Player createClient(string id, string nickName, WebSocket webSocket) {
+            if (isCorrect(id) == false) {
+                Debug.WriteLine("エラー：無効なIDが渡されたため、Playerのインスタンスを生成することができません\n");
+                throw new ArgumentException();
+            }
+            if (nickName == null) {
+                Debug.WriteLine("エラー：ニックネームがnullのため、Playerのインスタンスを生成することができません\n");
+                throw new ArgumentNullException();
+            }
+            if (webSocket == null) {
+                Debug.WriteLine("エラー：websocketがnullのため、Playerのインスタンスを生成することができません\n");
+                throw new ArgumentNullException();
+            }
+
             return new Player(id, nickName, Type.Client, webSocket);
         }
 
@@ -56,24 +70,32 @@ namespace MatchingServer {
         /// <param name="otherPlayers"></param>
         public async Task sendMyDataToOthersAsync(Player[] otherPlayers, int maxPlayerCount, MessageData.Type type) {
             foreach (var otherPlayer in otherPlayers) {
-                await otherPlayer.sendPlayerDataToClientAsync(this, maxPlayerCount, type);
+                await otherPlayer.sendOtherDataToClientAsync(this, maxPlayerCount, type);
             }
             //見やすいよう最後に改行を入れる
             Debug.WriteLine("\n");
         }
 
         /// <summary>
-        /// 結びついているクライアントに渡されたプレイヤーのデータを渡す
+        /// 「自分が」結びついているクライアントに渡された「他」プレイヤーのデータをJson文字列として送信する
+        /// 発生する可能性のある例外：ArgumentNullException
         /// </summary>
         /// <param name="otherPlayer"></param>
-        private async Task sendPlayerDataToClientAsync(Player otherPlayer, int maxPlayerCount, MessageData.Type type) {
+        private async Task sendOtherDataToClientAsync(Player otherPlayer, int maxPlayerCount, MessageData.Type type) {
             //CPUなら結びついているクライアントがいないので、送らない
             if (isCPU()) return;
+            if(otherPlayer == null) {
+                Debug.WriteLine("渡されたプレイヤーがnullのため、送信できません");
+                throw new ArgumentNullException();
+            }
+
             Debug.WriteLine($"プレイヤーID: {this.ID}にプレイヤーID: {otherPlayer.ID}が{MessageData.getMessageTypeDataTypeStr(type)}したというメッセージの送信を開始します");
 
             var messageData = new MessageData(otherPlayer.ID, otherPlayer.NICK_NAME, maxPlayerCount, type);
-            await Server.sendMessageAsync(WEBSOCKET, messageData);
-            Debug.WriteLine($"プレイヤーID: {this.ID}にプレイヤーID: {otherPlayer.ID}が{MessageData.getMessageTypeDataTypeStr(type)}したというメッセージの送信に成功しました");
+            var result = await Server.sendMessageAsync(WEBSOCKET, messageData);
+            if (result) {
+                Debug.WriteLine($"プレイヤーID: {this.ID}にプレイヤーID: {otherPlayer.ID}が{MessageData.getMessageTypeDataTypeStr(type)}したというメッセージの送信に成功しました");
+            }
         }
 
         public override string ToString() {
