@@ -131,6 +131,8 @@ namespace MatchingServer {
                     await closeClientConnectingAsync(webSocket, "通常終了", messageData.PLAYER_ID);
                     currentRoomIndex = INVAID_ID;
                     break;
+                default:
+                    break;
             }
             return currentRoomIndex;
         }
