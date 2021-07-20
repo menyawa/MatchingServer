@@ -193,14 +193,14 @@ namespace MatchingServer {
                     Debug.WriteLine("エラー：送られてきたメッセージがバイナリのため取得できません、nullを返します");
                     return null;
                 }
+                string messageStr = ENCODING.GetString(buffer, 0, result.Count);
+                Debug.WriteLine($"メッセージ取得に成功しました： {messageStr}");
+                return messageStr;
             } catch (WebSocketException exception) {
                 Debug.WriteLine("WebSocketExceptionを検知しました(恐らく、クライアントアプリが強制的に切断しました)");
                 Debug.WriteLine("受信失敗しました(nullを返します)");
                 return null;
             }
-            string messageStr = ENCODING.GetString(buffer, 0, result.Count);
-            Debug.WriteLine($"メッセージ取得に成功しました： {messageStr}");
-            return messageStr;
         }
 
         /// <summary>
