@@ -20,7 +20,7 @@ namespace MatchingServer {
         //メッセージの送信・復号に用いるエンコーディング
         private static readonly Encoding ENCODING = Encoding.UTF8;
         //無効な場合のIDの値(リセットに用いる)
-        private const int INVAID_ID = -1;
+        public const int INVAID_ID = -1;
         //現在走っているクライアントとの接続のタスクのリスト
         private static readonly List<Task> CLIENT_CONNECTING_TASK_LIST = new List<Task>();
 
@@ -149,7 +149,7 @@ namespace MatchingServer {
             var segment = new ArraySegment<byte>(ENCODING.GetBytes(message));
             try {
                 await Task.Run(() => webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None));
-            } catch (WebSocketException exception) {
+            } catch (WebSocketException) {
                 Debug.WriteLine("WebSocketExceptionを検知しました(恐らく、クライアントアプリが強制的に切断しました)");
                 Debug.WriteLine("送信失敗しました");
                 return false;
@@ -196,7 +196,7 @@ namespace MatchingServer {
                 string messageStr = ENCODING.GetString(buffer, 0, result.Count);
                 Debug.WriteLine($"メッセージ取得に成功しました： {messageStr}");
                 return messageStr;
-            } catch (WebSocketException exception) {
+            } catch (WebSocketException) {
                 Debug.WriteLine("WebSocketExceptionを検知しました(恐らく、クライアントアプリが強制的に切断しました)");
                 Debug.WriteLine("受信失敗しました(nullを返します)");
                 return null;

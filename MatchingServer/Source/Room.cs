@@ -35,9 +35,21 @@ namespace MatchingServer {
         public Room(string id, string nickName, WebSocket webSocket, int maxPlayerCount, int cpuCount = 0) {
             MAX_PLAYER_COUNT = maxPlayerCount;
             //作成と同時に1人が入るので、ルームの他のプレイヤーに入ったことを告知する必要はない(そもそもいない)ことに注意
-            join(id, nickName, webSocket);
+            try {
+                join(id, nickName, webSocket);
+            } catch (ArgumentException) {
+                Debug.WriteLine("エラー：ルーム作成と同時に行うクライアントのプレイヤー入室に失敗しました\n");
+            }
             //CPUのカウントは1から始まることに注意
-            for (int number = 1; number <= cpuCount; number++) join(Player.createCPU(number));
+            for (int number = 1; number <= cpuCount; number++) {
+                //createCPUの返り値は必ず非nullなので、ArgumentNullExceptionは起こり得ない
+                try {
+                    join(Player.createCPU(number));
+                } catch (InvalidOperationException) {
+                    Debug.WriteLine("エラー：CPUの入室に失敗しました\n");
+                    break;
+                }
+            }
         }
 
         /// <summary>
@@ -57,7 +69,7 @@ namespace MatchingServer {
                 return join(Player.createClient(id, nickName, webSocket));
             } catch (ArgumentNullException) {
                 Debug.WriteLine("エラー：ニックネーム、もしくはwebSocketがnullのため、プレイヤーを入室させることができません");
-                Debug.WriteLine("nullを返します");
+                Debug.WriteLine("nullを返します\n");
                 return null;
             }
         }
@@ -101,7 +113,12 @@ namespace MatchingServer {
                 throw new ArgumentException();
             }
 
-            return leave(getPlayer(id));
+            try {
+                return leave(getPlayer(id));
+            } catch (ArgumentException) {
+                Debug.WriteLine("エラー：引数の問題で、ルームからの退室処理に失敗しました");
+                return null;
+            }
         }
 
         /// <summary>
@@ -157,7 +174,7 @@ namespace MatchingServer {
         /// </summary>
         /// <param name="targetID"></param>
         /// <returns></returns>
-        public Player getPlayer(string targetID) {
+        private Player getPlayer(string targetID) {
             //有効なIDでないならnullを返す
             if (isCorrect(targetID) == false) {
                 Debug.WriteLine("エラー：渡されたIDが無効なIDのため、プレイヤーを取得できません");
