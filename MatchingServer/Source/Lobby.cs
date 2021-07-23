@@ -12,39 +12,52 @@ namespace MatchingServer {
     sealed class Lobby : ElementsBase {
         private readonly List<Room> ROOMS = new List<Room>();
 
-        public Lobby() { }
-
         /// <summary>
         /// プレイヤーをロビーのいずれかのルームに加入させ、入ったルームのインデックスを返す
         /// </summary>
         /// <returns></returns>
         public async Task<int> joinPlayerAsync(string id, string nickName, WebSocket webSocket, int maxPlayerCount) {
-            //希望した対戦人数で空いているルームを見つけ次第入れる
-            for (int index = 0; index < ROOMS.Count(); index++) {
-                var room = ROOMS[index];
-                if (room.canJoin() && room.MAX_PLAYER_COUNT == maxPlayerCount) {
+            bool allRoomIsClosed = true;
+            int index = 0;
+            Player player = null;
+            Room room = null;
+            //入室処理を複数のスレッドでほぼ同時に行うと新しく作成された空きルームを認識できなかったりするので、lockで排他制御する
+            lock (ROOMS) {
+                //希望した対戦人数で空いているルームを見つけ次第入れる
+                for (; index < ROOMS.Count(); index++) {
+                    room = ROOMS[index];
+                    if (room.canJoin() == false) continue;
+
+                    allRoomIsClosed = false;
                     try {
-                        var player = room.join(id, nickName, webSocket);
+                        player = room.join(id, nickName, webSocket);
                         if (player == null) {
                             Debug.WriteLine("エラー：入室に失敗しました");
-                            return -1;
+                            return Server.INVAID_ID;
                         }
-                        //ルームに自身が入ったことを他プレイヤーに通知する
-                        //こうすることでルームに自身が入った場合・他プレイヤーがルームに入った場合共に対応可能
-                        await player.sendMyDataToOthersAsync(room.getOtherPlayers(player), maxPlayerCount, MessageData.Type.Join);
-                        return index;
+                        break;
                     } catch (ArgumentException) {
                         Debug.WriteLine("エラー：入室に失敗しました(プレイヤーIDがおかしいようです)");
                         Debug.WriteLine("無効なID値を返します\n");
                         return Server.INVAID_ID;
                     }
                 }
+
+                //どこも空いていなかったら新たにルームを作成して入り、待機する
+                if (allRoomIsClosed) {
+                    ROOMS.Add(new Room(id, nickName, webSocket, maxPlayerCount));
+                    //返すのはインデックスなので-1することに注意
+                    index = ROOMS.Count() - 1;
+                    return index;
+                }
             }
 
-            //どこも空いていなかったら新たにルームを作成して入り、待機する
-            ROOMS.Add(new Room(id, nickName, webSocket, maxPlayerCount));
-            //返すのはインデックスなので-1することに注意
-            return ROOMS.Count() - 1;
+            //既にあるルームに入った場合、自身が入ったことを他プレイヤーに通知する
+            //lockステートメント内でawaitの待機はできないため、このように外でしなければいけないことに注意
+            //またどの引数もnullにはなりえないため、ArgumentNullExceptionは発生しない(try-catchはいらない)
+            await player.sendMyDataToOthersAsync(room.getOtherPlayers(player), maxPlayerCount, MessageData.Type.Join);
+            return index;
+
         }
 
         /// <summary>
@@ -61,7 +74,7 @@ namespace MatchingServer {
                 //CPUしかいなくなり次第ルームを消去する
                 if (room.allPlayerIsCPU()) ROOMS.RemoveAt(roomIndex);
                 return player;
-            //ArgumentExceptionはArgumentNullExceptionのBaseクラスなので、catch句は1つでよい
+                //ArgumentExceptionはArgumentNullExceptionのBaseクラスなので、catch句は1つでよい
             } catch (ArgumentException) {
                 Debug.WriteLine("エラー：引数関係でエラーが発生したため、退出できませんでした");
                 Debug.WriteLine("nullを返します\n");

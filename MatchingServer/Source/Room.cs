@@ -33,6 +33,7 @@ namespace MatchingServer {
         /// <param name="maxPlayerCount"></param>
         /// <param name="cpuCount"></param>
         public Room(string id, string nickName, WebSocket webSocket, int maxPlayerCount, int cpuCount = 0) {
+            Debug.WriteLine($"ルームを新規作成し、プレイヤーを1人、CPUを{cpuCount}人入室させます");
             MAX_PLAYER_COUNT = maxPlayerCount;
             //作成と同時に1人が入るので、ルームの他のプレイヤーに入ったことを告知する必要はない(そもそもいない)ことに注意
             try {
@@ -50,6 +51,7 @@ namespace MatchingServer {
                     break;
                 }
             }
+            Debug.WriteLine("ルームの新規作成、プレイヤーの入室に成功しました");
         }
 
         /// <summary>
@@ -92,7 +94,6 @@ namespace MatchingServer {
             }
 
             if (player.isCPU() == false) Debug.WriteLine($"プレイヤーが入室しました ID: {player.ID}\n");
-
             PLAYERS.Add(player);
             //満員になり次第ルームを閉じる
             if (PLAYERS.Count() == MAX_PLAYER_COUNT) {

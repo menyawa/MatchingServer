@@ -151,7 +151,7 @@ namespace MatchingServer {
                 await Task.Run(() => webSocket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None));
             } catch (WebSocketException) {
                 Debug.WriteLine("WebSocketExceptionを検知しました(恐らく、クライアントアプリが強制的に切断しました)");
-                Debug.WriteLine("送信失敗しました");
+                Debug.WriteLine("送信失敗しました\n");
                 return false;
             }
             Debug.WriteLine($"クライアントアプリにメッセージを送信成功しました： {message}");
