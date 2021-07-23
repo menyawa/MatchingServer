@@ -17,21 +17,21 @@ namespace MatchingServer {
         /// </summary>
         /// <returns></returns>
         public async Task<int> joinPlayerAsync(string id, string nickName, WebSocket webSocket, int maxPlayerCount) {
-            bool allRoomIsClosed = true;
             int index = 0;
-            Player player = null;
+            Player myPlayer = null;
             Room room = null;
             //入室処理を複数のスレッドでほぼ同時に行うと新しく作成された空きルームを認識できなかったりするので、lockで排他制御する
             lock (ROOMS) {
                 //希望した対戦人数で空いているルームを見つけ次第入れる
+                bool allRoomIsClosed = true;
                 for (; index < ROOMS.Count(); index++) {
                     room = ROOMS[index];
                     if (room.canJoin() == false) continue;
 
                     allRoomIsClosed = false;
                     try {
-                        player = room.join(id, nickName, webSocket);
-                        if (player == null) {
+                        myPlayer = room.join(id, nickName, webSocket);
+                        if (myPlayer == null) {
                             Debug.WriteLine("エラー：入室に失敗しました");
                             return Server.INVAID_ID;
                         }
@@ -55,7 +55,13 @@ namespace MatchingServer {
             //既にあるルームに入った場合、自身が入ったことを他プレイヤーに通知する
             //lockステートメント内でawaitの待機はできないため、このように外でしなければいけないことに注意
             //またどの引数もnullにはなりえないため、ArgumentNullExceptionは発生しない(try-catchはいらない)
-            await player.sendMyDataToOthersAsync(room.getOtherPlayers(player), maxPlayerCount, MessageData.Type.Join);
+            var otherPlayersInRoom = room.getOtherPlayers(myPlayer);
+            await myPlayer.sendMyDataToOthersAsync(otherPlayersInRoom, maxPlayerCount, MessageData.Type.Join);
+            foreach (var otherPlayer in otherPlayersInRoom) {
+                //同時に、既にルームに入っている他プレイヤーの情報を自身に通知する
+                Player[] temp = { myPlayer };
+                await otherPlayer.sendMyDataToOthersAsync(temp, maxPlayerCount, MessageData.Type.Join);
+            }
             return index;
 
         }
