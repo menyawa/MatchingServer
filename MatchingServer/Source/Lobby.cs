@@ -19,6 +19,7 @@ namespace MatchingServer {
         public async Task<int> joinPlayerAsync(string id, string nickName, WebSocket webSocket, int maxPlayerCount) {
             int index = 0;
             Player myPlayer = null;
+            Player[] otherPlayersInRoom = null;
             Room room = null;
             //入室処理を複数のスレッドでほぼ同時に行うと新しく作成された空きルームを認識できなかったりするので、lockで排他制御する
             lock (ROOMS) {
@@ -35,6 +36,7 @@ namespace MatchingServer {
                             Debug.WriteLine("エラー：入室に失敗しました");
                             return Server.INVAID_ID;
                         }
+                        otherPlayersInRoom = room.getOtherPlayers(myPlayer);
                         break;
                     } catch (ArgumentException) {
                         Debug.WriteLine("エラー：入室に失敗しました(プレイヤーIDがおかしいようです)");
@@ -55,7 +57,6 @@ namespace MatchingServer {
             //既にあるルームに入った場合、自身が入ったことを他プレイヤーに通知する
             //lockステートメント内でawaitの待機はできないため、このように外でしなければいけないことに注意
             //またどの引数もnullにはなりえないため、ArgumentNullExceptionは発生しない(try-catchはいらない)
-            var otherPlayersInRoom = room.getOtherPlayers(myPlayer);
             await myPlayer.sendMyDataToOthersAsync(otherPlayersInRoom, maxPlayerCount, MessageData.Type.Join);
             foreach (var otherPlayer in otherPlayersInRoom) {
                 //同時に、既にルームに入っている他プレイヤーの情報を自身に通知する
@@ -68,24 +69,34 @@ namespace MatchingServer {
 
         /// <summary>
         /// 指定したルームの指定プレイヤーを退出させ、プレイヤーのインスタンスを返す
+        /// 通常の退室時のみならず切断時・タイムアウト時の退室時もこのメソッドを用いるため、引数で他プレイヤーに送るメッセージタイプを指定する
+        /// 発生する可能性のある例外：ArgumentOutOfRangeException
         /// </summary>
         /// <param name="id"></param>
         /// <param name="roomIndex"></param>
-        public async Task<Player> leavePlayerAsync(string id, int roomIndex) {
-            var room = ROOMS[roomIndex];
-            //入室の際と同様に、退出の際にも他プレイヤーに通知する
-            try {
-                var player = room.leave(id);
-                await player.sendMyDataToOthersAsync(room.getOtherPlayers(player), room.MAX_PLAYER_COUNT, MessageData.Type.Leave);
-                //CPUしかいなくなり次第ルームを消去する
-                if (room.allPlayerIsCPU()) ROOMS.RemoveAt(roomIndex);
-                return player;
-                //ArgumentExceptionはArgumentNullExceptionのBaseクラスなので、catch句は1つでよい
-            } catch (ArgumentException) {
-                Debug.WriteLine("エラー：引数関係でエラーが発生したため、退出できませんでした");
-                Debug.WriteLine("nullを返します\n");
-                return null;
+        public async Task<Player> leavePlayerAsync(string id, int roomIndex, MessageData.Type messageType) {
+            Room room = null;
+            Player myPlayer = null;
+            lock (ROOMS) {
+                if (roomIndex >= ROOMS.Count()) {
+                    Debug.WriteLine("エラー：指定したルーム番号は存在しません");
+                    throw new ArgumentOutOfRangeException();
+                }
+
+                room = ROOMS[roomIndex];
+                try {
+                    myPlayer = room.leave(id);
+                    //CPUしかいなくなり次第ルームを消去する
+                    if (room.allPlayerIsCPU()) ROOMS.RemoveAt(roomIndex);
+                    //ArgumentExceptionはArgumentNullExceptionのBaseクラスなので、catch句は1つでよい
+                } catch (ArgumentException) {
+                    Debug.WriteLine("エラー：引数関係でエラーが発生したため、退出できませんでした");
+                    Debug.WriteLine("nullを返します\n");
+                    return null;
+                }
             }
+            await myPlayer.sendMyDataToOthersAsync(room.getOtherPlayers(myPlayer), room.MAX_PLAYER_COUNT, messageType);
+            return myPlayer;
         }
 
         public override string ToString() {

@@ -60,8 +60,6 @@ namespace MatchingServer {
         /// </summary>
         /// <returns></returns>
         public static async Task supportMessageAsync(WebSocket webSocket) {
-            Debug.WriteLine("メッセージの送受信・対応を開始します");
-
             //応答なしの時間を測るため、ストップウォッチを用意して開始
             var noResponseTimeStopwatch = new Stopwatch();
             noResponseTimeStopwatch.Start();
@@ -76,30 +74,48 @@ namespace MatchingServer {
             while (isConnected(webSocket.State)) {
                 //受信完了していたらそのメッセージに応じた入室、退室等の処理を行う
                 if (getClientMessageTask.IsCompletedSuccessfully) {
+                    //応答があった時点で応答なしの時間はリセットしておく
+                    noResponseTimeStopwatch.Restart();
                     //メッセージの受信が完了したら新たな受信待ちを開始しないと次のメッセージが受け取れないことに注意
                     //また受信データをキャッシュしておかないと、新しい受信待ちタスクに入れ替えた後では古いメッセージが受信できないので注意
                     var clientMessageData = JsonSerializer.Deserialize<MessageData>(getClientMessageTask.Result);
-                    getClientMessageTask = getReceiveMessageAsync(webSocket);
-                    //ここを非同期で実行してしまうと前回のメッセージの処理が終わらないうちに次のメッセージの処理が始まる危険性があるので注意
-                    currentRoomIndex = await runByClientMessageProgressAsync(webSocket, clientMessageData, currentRoomIndex);
                     playerID = clientMessageData.PLAYER_ID;
+                    //ここで待たないと前回のメッセージの処理が終わらないうちに次のメッセージの処理が始まる危険性があるので注意
+                    //また処理を行う→新しいメッセージ取得タスクを開始という順で行わないと、回線切断時にエラーが起きる危険があるので注意
+                    currentRoomIndex = await runByClientMessageProgressAsync(webSocket, clientMessageData, currentRoomIndex);
 
-                    //応答があった時点で応答なしの時間はリセットしておく
-                    noResponseTimeStopwatch.Restart();
+                    //切断されているなら即抜けで問題ない
+                    if (isConnected(webSocket.State) == false) break;
+                    try {
+                        getClientMessageTask = getReceiveMessageAsync(webSocket);
+                    } catch (ArgumentException) {
+                        Debug.WriteLine("新規のメッセージ取得タスクを生成する際、引数関係でエラーが発生しました");
+                        Debug.WriteLine("メッセージの応対を終了します");
+                        break;
+                    }
                 } else {
                     //していなかったらタイムアウトしているかどうか見て、していた場合コネクションを切断する
                     //受信していないかつタイムアウトもしていないなら何も行わない
                     if (isTimeOut(noResponseTimeStopwatch.Elapsed.TotalSeconds)) {
                         await closeClientConnectingAsync(webSocket, "タイムアウト", playerID);
+                        //タイムアウトした場合、メッセージ取得タスクを強制終了する
+                        //また退室が行えていない場合があるので、ルームIDはリセットしないままメインループを抜ける
+
+                        break;
                     }
                 }
             }
 
+            //breakで抜けるなどして、メインループを抜けた場合でも接続されたままの場合を考慮する
+            if (isConnected(webSocket.State)) {
+                Debug.WriteLine("異常終了を検知しました");
+                await closeClientConnectingAsync(webSocket, "異常終了", playerID);
+            }
+
             //クライアントアプリの終了等による強制切断を考慮し、接続切断時点でルームIDが無効になっていないなら退室処理を行う
-            //isConnectedのループから抜けた == 接続されていないということなので、切断処理を重ねて行う必要はない(たとえクライアントアプリの終了による強制切断でも)
             if (currentRoomIndex != INVAID_ID) {
                 Debug.WriteLine("強制切断を検知したため、プレイヤーの退室処理を行います");
-                await getDefaultLobby().leavePlayerAsync(playerID, currentRoomIndex);
+                await getDefaultLobby().leavePlayerAsync(playerID, currentRoomIndex, MessageData.Type.Leave);
             }
             Debug.WriteLine($"プレイヤーID：{playerID}の接続を終了しました\n");
         }
@@ -120,15 +136,19 @@ namespace MatchingServer {
 
                 case MessageData.Type.Leave:
                     //ルームに入る→退室するという順番でないと、当然ながらエラーが出るので注意
-                    await getDefaultLobby().leavePlayerAsync(messageData.PLAYER_ID, currentRoomIndex);
+                    await getDefaultLobby().leavePlayerAsync(messageData.PLAYER_ID, currentRoomIndex, messageData.type_);
                     currentRoomIndex = INVAID_ID;
                     break;
 
                 case MessageData.Type.PeriodicReport:
                     break;
                 case MessageData.Type.Disconnect:
-                    //切断要請があり次第切断する
+                    //切断要請があり次第こちらからも切断する
+                    //サーバとクライアント両方でCloseAsyncは行わないと、WebSocketは閉じないので注意
                     await closeClientConnectingAsync(webSocket, "通常終了", messageData.PLAYER_ID);
+                    //まだルームにいるなら退室処理を行う
+                    if (currentRoomIndex != INVAID_ID)
+                        await getDefaultLobby().leavePlayerAsync(messageData.PLAYER_ID, currentRoomIndex, messageData.type_);
                     currentRoomIndex = INVAID_ID;
                     break;
                 default:
@@ -139,12 +159,18 @@ namespace MatchingServer {
 
         /// <summary>
         /// 指定されたWebsocketで、メッセージ(文字列)を送信し、送信成功したかどうかを返す
+        /// 発生する可能性のある例外：ArgumentException
         /// </summary>
         /// <param name="webSocket"></param>
         /// <param name="message"></param>
         /// <returns></returns>
         private static async Task<bool> sendMessageAsync(WebSocket webSocket, string message) {
             Debug.WriteLine("クライアントアプリにメッセージを送信します");
+            if (isConnected(webSocket.State) == false) {
+                Debug.WriteLine("エラー：WebSocketが接続されていないため、送信できません");
+                throw new ArgumentException();
+            }
+
             //文字列をバイト列に変換して送る
             var segment = new ArraySegment<byte>(ENCODING.GetBytes(message));
             try {
@@ -162,7 +188,7 @@ namespace MatchingServer {
         /// 指定されたWebsocketで、渡されたMessageDataを文字列として送信し、送信成功したかどうかを返す
         /// </summary>
         /// <param name="webSocket"></param>
-        /// <param name="message"></param>
+        /// <param name="data"></param>
         /// <returns></returns>
         public static async Task<bool> sendMessageAsync(WebSocket webSocket, MessageData data) {
             return await sendMessageAsync(webSocket, data.ToString());
@@ -171,12 +197,17 @@ namespace MatchingServer {
         /// <summary>
         /// 送られてきたメッセージをstringとして非同期で取得する
         /// 複数送られてきている場合、回ごとに分けて受信されるため、全てのメッセージを見るにはその回数分呼び出さないといけないことに注意
+        /// 発生する可能性のある例外：ArgumentException
         /// 参考URL:https://qiita.com/Zumwalt/items/53797b0156ebbdcdbfb1
         /// </summary>
         /// <param name="webSocket"></param>
         /// <returns></returns>
         private static async Task<string> getReceiveMessageAsync(WebSocket webSocket) {
             Debug.WriteLine("クライアントからのメッセージ取得を開始します");
+            if (isConnected(webSocket.State) == false) {
+                Debug.WriteLine("エラー：WebSocketが接続されていないため、取得できません");
+                throw new ArgumentException();
+            }
 
             var buffer = new byte[1024];
             //所得情報確保用の配列を準備
@@ -185,13 +216,15 @@ namespace MatchingServer {
                 //サーバからのレスポンス情報を取得
                 var result = await Task.Run(() => webSocket.ReceiveAsync(segment, CancellationToken.None));
 
-                if (result.MessageType == WebSocketMessageType.Close) {
-                    Debug.WriteLine("エラー：エンドポイントCloseのためメッセージを取得できません、nullを返します");
-                    return null;
-                }
                 if (result.MessageType == WebSocketMessageType.Binary) {
                     Debug.WriteLine("エラー：送られてきたメッセージがバイナリのため取得できません、nullを返します");
                     return null;
+                }
+                if (result.MessageType == WebSocketMessageType.Close) {
+                    Debug.WriteLine("エンドポイントがCloseとなったため(切断要求が届いたため)切断要求のMessageDataを返します");
+                    var closingMessageData = MessageData.getBlankData();
+                    closingMessageData.type_ = MessageData.Type.Disconnect;
+                    return closingMessageData.ToString();
                 }
                 string messageStr = ENCODING.GetString(buffer, 0, result.Count);
                 Debug.WriteLine($"メッセージ取得に成功しました： {messageStr}");
@@ -209,7 +242,8 @@ namespace MatchingServer {
         /// <param name="state"></param>
         /// <returns></returns>
         private static bool isConnected(WebSocketState state) {
-            return state == WebSocketState.Open || state == WebSocketState.Connecting;
+            //ConnectingかOpenかどうかでは、クライアントから切断要求が届いた際にまだ切断されていないのに切断されていると判定されてしまうので注意
+            return state != WebSocketState.Aborted && state != WebSocketState.None && state != WebSocketState.Closed;
         }
 
         /// <summary>
@@ -263,6 +297,7 @@ namespace MatchingServer {
             Debug.WriteLine($"クライアントとの接続を終了します 理由： {statusDescription}");
             Debug.WriteLine($"該当プレイヤーID: {playerID}");
             await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, statusDescription, CancellationToken.None);
+            Debug.WriteLine("クライアントとの接続終了に成功しました");
         }
     }
 }
