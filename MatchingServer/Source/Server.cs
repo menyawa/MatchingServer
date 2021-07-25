@@ -78,6 +78,23 @@ namespace MatchingServer {
                     noResponseTimeStopwatch.Restart();
                     //メッセージの受信が完了したら新たな受信待ちを開始しないと次のメッセージが受け取れないことに注意
                     //また受信データをキャッシュしておかないと、新しい受信待ちタスクに入れ替えた後では古いメッセージが受信できないので注意
+                    var messageStr = getClientMessageTask.Result;
+
+                    //エンドポイントCloseやバイナリは有効なメッセージとみなされない
+                    if (messageStr == null) {
+                        Debug.WriteLine("有効なメッセージが送られませんでした");
+                        Debug.WriteLine("次のメッセージ取得に移行します");
+
+                        try {
+                            getClientMessageTask = getReceiveMessageAsync(webSocket);
+                        } catch (ArgumentException) {
+                            Debug.WriteLine("新規のメッセージ取得タスクを生成する際、引数関係でエラーが発生しました");
+                            Debug.WriteLine("メッセージの応対を終了します");
+                            break;
+                        }
+                        continue;
+                    }
+
                     var clientMessageData = JsonSerializer.Deserialize<MessageData>(getClientMessageTask.Result);
                     playerID = clientMessageData.PLAYER_ID;
                     //ここで待たないと前回のメッセージの処理が終わらないうちに次のメッセージの処理が始まる危険性があるので注意
@@ -216,15 +233,14 @@ namespace MatchingServer {
                 //サーバからのレスポンス情報を取得
                 var result = await Task.Run(() => webSocket.ReceiveAsync(segment, CancellationToken.None));
 
+                //バイナリ、エンドポイントCloseのメッセージは無視する
                 if (result.MessageType == WebSocketMessageType.Binary) {
                     Debug.WriteLine("エラー：送られてきたメッセージがバイナリのため取得できません、nullを返します");
                     return null;
                 }
                 if (result.MessageType == WebSocketMessageType.Close) {
-                    Debug.WriteLine("エンドポイントがCloseとなったため(切断要求が届いたため)切断要求のMessageDataを返します");
-                    var closingMessageData = MessageData.getBlankData();
-                    closingMessageData.type_ = MessageData.Type.Disconnect;
-                    return closingMessageData.ToString();
+                    Debug.WriteLine("エンドポイントがCloseのメッセージ(CloseAsyncの切断要求で自動で届くもの)なので無視してnullを返します");
+                    return null;
                 }
                 string messageStr = ENCODING.GetString(buffer, 0, result.Count);
                 Debug.WriteLine($"メッセージ取得に成功しました： {messageStr}");
