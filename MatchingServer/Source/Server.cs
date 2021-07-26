@@ -117,7 +117,11 @@ namespace MatchingServer {
                     if (isTimeOut(noResponseTimeStopwatch.Elapsed.TotalSeconds)) {
                         Debug.WriteLine("タイムアウトしたため、接続を強制切断します");
                         //AbortすることでIO操作も打ち切られる
-                        webSocket.Abort();
+                        try {
+                            webSocket.Abort();
+                        } catch (WebSocketException) {
+                            Debug.WriteLine("エラー：タイムアウトでの切断時にエラーが発生しました(恐らく、クライアントアプリ側でタイムアウトとして切断されました)");
+                        }
                         break;
                     }
                 }
