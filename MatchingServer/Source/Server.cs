@@ -174,6 +174,13 @@ namespace MatchingServer {
                         await getDefaultLobby().leavePlayerAsync(messageData.PLAYER_ID, currentRoomIndex, messageData.type_);
                     currentRoomIndex = INVAID_ID;
                     break;
+                case MessageData.Type.TimeOut:
+                    //タイムアウトのメッセージが届く == まだサーバとは接続されており切断を望んでいるということなため、closeAsyncによる切断が必要となる
+                    await closeClientConnectingAsync(webSocket, "ゲームアプリタイムアウト", messageData.PLAYER_ID);
+                    if (currentRoomIndex != INVAID_ID)
+                        await getDefaultLobby().leavePlayerAsync(messageData.PLAYER_ID, currentRoomIndex, messageData.type_);
+                    currentRoomIndex = INVAID_ID;
+                    break;
                 default:
                     break;
             }
