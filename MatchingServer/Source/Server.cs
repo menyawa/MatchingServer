@@ -63,8 +63,9 @@ namespace MatchingServer {
             //応答なしの時間を測るため、ストップウォッチを用意して開始
             var noResponseTimeStopwatch = new Stopwatch();
             noResponseTimeStopwatch.Start();
-            //このメソッドで担当するプレイヤーのIDと、現在プレイヤーがいるルームのindex
-            string playerID = INVAID_ID.ToString();
+            //このメソッドで担当するプレイヤーのID等のデータと、現在プレイヤーがいるルームのindex
+            //接続後、初回にプレイヤーのデータがゲームアプリから送られてくる
+            var playerData = JsonSerializer.Deserialize<MessageData>(await getReceiveMessageAsync(webSocket));
             int currentRoomIndex = INVAID_ID;
             //受信中の応答無しの時間を測定する関係上、awaitで待つことはしない
             //また別スレッドで実行しなくても良い(内部的にメッセージ取得を別メソッドで行うようにしているため)
@@ -96,7 +97,6 @@ namespace MatchingServer {
                     }
 
                     var clientMessageData = JsonSerializer.Deserialize<MessageData>(getClientMessageTask.Result);
-                    playerID = clientMessageData.PLAYER_ID;
                     //ここで待たないと前回のメッセージの処理が終わらないうちに次のメッセージの処理が始まる危険性があるので注意
                     //また処理を行う→新しいメッセージ取得タスクを開始という順で行わないと、回線切断時にエラーが起きる危険があるので注意
                     currentRoomIndex = await runByClientMessageProgressAsync(webSocket, clientMessageData, currentRoomIndex);
@@ -138,9 +138,9 @@ namespace MatchingServer {
             //クライアントアプリの終了等による強制切断を考慮し、接続切断時点でルームIDが無効になっていないなら退室処理を行う
             if (currentRoomIndex != INVAID_ID) {
                 Debug.WriteLine("強制切断を検知したため、プレイヤーの退室処理を行います");
-                await getDefaultLobby().leavePlayerAsync(playerID, currentRoomIndex, MessageData.Type.Leave);
+                await getDefaultLobby().leavePlayerAsync(playerData.PLAYER_ID, currentRoomIndex, MessageData.Type.Leave);
             }
-            Debug.WriteLine($"プレイヤーID：{playerID}の接続を終了しました\n");
+            Debug.WriteLine($"プレイヤーID：{playerData.PLAYER_ID}の接続を終了しました\n");
         }
 
         /// <summary>
