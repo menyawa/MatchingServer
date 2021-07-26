@@ -84,7 +84,6 @@ namespace MatchingServer {
                     if (messageStr == null) {
                         Debug.WriteLine("有効なメッセージが送られませんでした");
                         Debug.WriteLine("次のメッセージ取得に移行します");
-
                         try {
                             getClientMessageTask = getReceiveMessageAsync(webSocket);
                         } catch (ArgumentException) {
@@ -92,6 +91,7 @@ namespace MatchingServer {
                             Debug.WriteLine("メッセージの応対を終了します");
                             break;
                         }
+
                         continue;
                     }
 
@@ -113,11 +113,11 @@ namespace MatchingServer {
                 } else {
                     //していなかったらタイムアウトしているかどうか見て、していた場合コネクションを切断する
                     //受信していないかつタイムアウトもしていないなら何も行わない
+                    //またタイムアウト時点で退室が行えていない場合があるので、ルームIDはリセットしないままメインループを抜ける
                     if (isTimeOut(noResponseTimeStopwatch.Elapsed.TotalSeconds)) {
-                        await closeClientConnectingAsync(webSocket, "タイムアウト", playerID);
-                        //タイムアウトした場合、メッセージ取得タスクを強制終了する
-                        //また退室が行えていない場合があるので、ルームIDはリセットしないままメインループを抜ける
-
+                        Debug.WriteLine("タイムアウトしたため、接続を強制切断します");
+                        //AbortすることでIO操作も打ち切られる
+                        webSocket.Abort();
                         break;
                     }
                 }
@@ -126,7 +126,9 @@ namespace MatchingServer {
             //breakで抜けるなどして、メインループを抜けた場合でも接続されたままの場合を考慮する
             if (isConnected(webSocket.State)) {
                 Debug.WriteLine("異常終了を検知しました");
-                await closeClientConnectingAsync(webSocket, "異常終了", playerID);
+                Debug.WriteLine("回線を切断します");
+                //AbortすることでIO操作も打ち切られる
+                webSocket.Abort();
             }
 
             //クライアントアプリの終了等による強制切断を考慮し、接続切断時点でルームIDが無効になっていないなら退室処理を行う
@@ -268,7 +270,7 @@ namespace MatchingServer {
         /// <param name="noResponceTime"></param>
         /// <returns></returns>
         private static bool isTimeOut(double noResponceTime) {
-            return noResponceTime >= 50.0;
+            return noResponceTime >= 20.0;
         }
 
         /// <summary>
